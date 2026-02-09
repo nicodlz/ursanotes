@@ -2,7 +2,7 @@ import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { useVaultStore } from "@/stores/vault.js";
+import { getVaultStore } from "@/stores/vault.js";
 
 interface PreviewProps {
   noteId: string;
@@ -125,9 +125,14 @@ const components: Components = {
 };
 
 export function Preview({ noteId }: PreviewProps) {
-  const note = useVaultStore((state) => state.notes.find((n) => n.id === noteId));
+  const store = getVaultStore();
+  // Select only the content string to minimize re-renders
+  const noteContent = store((state) => {
+    const note = state.notes.find((n) => n.id === noteId);
+    return note?.content ?? null;
+  });
 
-  if (!note) {
+  if (noteContent === null) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
         <p>Note not found</p>
@@ -143,7 +148,7 @@ export function Preview({ noteId }: PreviewProps) {
           rehypePlugins={[rehypeHighlight]}
           components={components}
         >
-          {note.content}
+          {noteContent}
         </ReactMarkdown>
       </div>
     </div>

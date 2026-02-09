@@ -418,12 +418,12 @@ export function useSyncStatus(): SyncStatus {
     // Initial status
     setStatus(vaultStore.vault.getSyncStatus() as SyncStatus);
 
-    // Poll for status changes (vault middleware doesn't have a subscribe for sync status)
+    // Poll for status changes - every 5 seconds is enough for UX
     const interval = setInterval(() => {
       if (vaultStore) {
         setStatus(vaultStore.vault.getSyncStatus() as SyncStatus);
       }
-    }, 1000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);

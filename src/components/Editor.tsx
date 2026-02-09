@@ -7,7 +7,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
-import { useVaultStore } from "@/stores/vault.js";
+import { getVaultStore } from "@/stores/vault.js";
 
 // Custom dark theme highlighting
 const darkHighlighting = HighlightStyle.define([
@@ -143,8 +143,10 @@ export function Editor({ noteId }: EditorProps) {
   const isExternalUpdate = useRef(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  const note = useVaultStore((state) => state.notes.find((n) => n.id === noteId));
-  const updateNote = useVaultStore((state) => state.updateNote);
+  // Get store and subscribe to note changes
+  const store = getVaultStore();
+  const note = store((state) => state.notes.find((n) => n.id === noteId));
+  const updateNote = store((state) => state.updateNote);
 
   const handleChange = useCallback((update: { docChanged: boolean; state: EditorState }) => {
     if (update.docChanged && !isExternalUpdate.current) {
