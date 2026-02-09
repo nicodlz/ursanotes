@@ -308,10 +308,7 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
       onRehydrateStorage: () => (_state: VaultState | undefined, error: unknown) => {
         rehydrationComplete = true;
         if (error) {
-          console.error("Failed to decrypt vault:", error);
           rehydrationError = error instanceof Error ? error : new Error(String(error));
-        } else {
-          console.log("Vault decrypted successfully");
         }
       },
     };

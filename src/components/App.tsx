@@ -93,7 +93,6 @@ export function App() {
     
     // If no credential, we need to re-authenticate to get the encryption key
     if (!credential) {
-      console.log("No credential available, need re-authentication");
       setNeedsReauth(true);
       return;
     }
