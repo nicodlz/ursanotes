@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Menu } from "lucide-react";
 import { useVaultStore } from "../stores/index.js";
 import { Button } from "@/components/ui/button";
 import { FolderPicker } from "./FolderPicker.js";
@@ -7,9 +7,10 @@ import { TagPicker } from "./TagPicker.js";
 
 interface NoteHeaderProps {
   noteId: string;
+  onMenuClick?: () => void;
 }
 
-export function NoteHeader({ noteId }: NoteHeaderProps) {
+export function NoteHeader({ noteId, onMenuClick }: NoteHeaderProps) {
   const notes = useVaultStore((state) => state.notes);
   const updateNote = useVaultStore((state) => state.updateNote);
   const deleteNote = useVaultStore((state) => state.deleteNote);
@@ -63,7 +64,20 @@ export function NoteHeader({ noteId }: NoteHeaderProps) {
   };
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+    <div className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+      {/* Mobile menu button */}
+      {onMenuClick && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden h-9 w-9 shrink-0 touch-manipulation"
+          onClick={onMenuClick}
+        >
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Open menu</span>
+        </Button>
+      )}
+
       {/* Editable title */}
       <div className="flex-1 min-w-0">
         {isEditing ? (
@@ -74,12 +88,12 @@ export function NoteHeader({ noteId }: NoteHeaderProps) {
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
-            className="w-full bg-transparent text-lg font-semibold text-[var(--text-primary)] outline-none border-b-2 border-[var(--accent)]"
+            className="w-full bg-transparent text-base md:text-lg font-semibold text-[var(--text-primary)] outline-none border-b-2 border-[var(--accent)]"
           />
         ) : (
           <h2
             onClick={handleTitleClick}
-            className="text-lg font-semibold text-[var(--text-primary)] truncate cursor-pointer hover:text-[var(--accent)] transition-colors"
+            className="text-base md:text-lg font-semibold text-[var(--text-primary)] truncate cursor-pointer hover:text-[var(--accent)] active:text-[var(--accent)] transition-colors touch-manipulation"
             title="Click to edit title"
           >
             {note.title}
@@ -87,8 +101,10 @@ export function NoteHeader({ noteId }: NoteHeaderProps) {
         )}
       </div>
 
-      {/* Folder picker */}
-      <FolderPicker noteId={noteId} />
+      {/* Folder picker - hide label on mobile */}
+      <div className="hidden sm:block">
+        <FolderPicker noteId={noteId} />
+      </div>
 
       {/* Tag picker */}
       <div className="flex items-center">
@@ -98,8 +114,8 @@ export function NoteHeader({ noteId }: NoteHeaderProps) {
       {/* Delete button */}
       <Button
         variant="ghost"
-        size="icon-sm"
-        className="text-[var(--text-secondary)] hover:text-red-500"
+        size="icon"
+        className="h-9 w-9 text-[var(--text-secondary)] hover:text-red-500 active:text-red-600 touch-manipulation shrink-0"
         onClick={handleDelete}
         title="Delete note"
       >

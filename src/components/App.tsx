@@ -3,7 +3,7 @@ import { useAuth } from "@zod-vault/client";
 import { vaultClient } from "../lib/vault-client.js";
 import { initializeVaultStore, getVaultStore, isVaultInitialized, clearVaultStore } from "../stores/vault.js";
 import { Auth } from "./Auth.js";
-import { Sidebar } from "./Sidebar.js";
+import { Sidebar, MobileSidebar, MobileMenuButton } from "./Sidebar.js";
 import { SplitView } from "./SplitView.js";
 import { FileText, Loader2 } from "lucide-react";
 
@@ -18,13 +18,24 @@ export function getRecoveryKey(): string | null {
   return currentRecoveryKey;
 }
 
-function EmptyState() {
+function EmptyState({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <div className="h-full flex items-center justify-center text-[var(--text-secondary)]">
-      <div className="text-center">
-        <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-        <h2 className="text-xl font-semibold mb-2">No note selected</h2>
-        <p className="text-sm">Select a note from the sidebar or create a new one</p>
+    <div className="h-full flex flex-col">
+      {/* Mobile header with menu button */}
+      <div className="flex md:hidden items-center gap-2 p-3 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+        <MobileMenuButton onClick={onMenuClick} />
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🔐</span>
+          <h1 className="font-semibold text-[var(--text-primary)]">VaultMD</h1>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex items-center justify-center text-[var(--text-secondary)] p-4">
+        <div className="text-center">
+          <FileText className="h-12 w-12 md:h-16 md:w-16 mx-auto mb-4 opacity-50" />
+          <h2 className="text-lg md:text-xl font-semibold mb-2">No note selected</h2>
+          <p className="text-sm">Select a note from the sidebar or create a new one</p>
+        </div>
       </div>
     </div>
   );
@@ -32,10 +43,10 @@ function EmptyState() {
 
 function LoadingState({ message }: { message?: string }) {
   return (
-    <div className="h-screen flex items-center justify-center bg-[var(--bg-primary)]">
+    <div className="h-screen flex items-center justify-center bg-[var(--bg-primary)] p-4">
       <div className="text-center">
-        <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-[var(--accent)]" />
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">
+        <Loader2 className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-4 animate-spin text-[var(--accent)]" />
+        <h2 className="text-base md:text-lg font-medium text-[var(--text-primary)]">
           {message ?? "Loading..."}
         </h2>
       </div>
@@ -45,6 +56,7 @@ function LoadingState({ message }: { message?: string }) {
 
 function MainLayout() {
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (isVaultInitialized()) {
@@ -63,15 +75,18 @@ function MainLayout() {
 
   return (
     <div className="h-screen flex overflow-hidden">
-      {/* Sidebar */}
+      {/* Desktop Sidebar - hidden on mobile */}
       <Sidebar />
       
+      {/* Mobile Sidebar - drawer */}
+      <MobileSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+      
       {/* Main content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {currentNoteId ? (
-          <SplitView noteId={currentNoteId} />
+          <SplitView noteId={currentNoteId} onMenuClick={() => setSidebarOpen(true)} />
         ) : (
-          <EmptyState />
+          <EmptyState onMenuClick={() => setSidebarOpen(true)} />
         )}
       </div>
     </div>
@@ -154,14 +169,14 @@ export function App() {
     return (
       <div className="h-screen flex items-center justify-center bg-[var(--bg-primary)] p-4">
         <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold text-red-400 mb-2">Vault Error</h2>
-          <p className="text-[var(--text-secondary)] mb-4">{vaultError}</p>
+          <h2 className="text-lg md:text-xl font-semibold text-red-400 mb-2">Vault Error</h2>
+          <p className="text-sm md:text-base text-[var(--text-secondary)] mb-4">{vaultError}</p>
           <button
             onClick={() => {
               setVaultError(null);
               vaultClient.signOut();
             }}
-            className="text-[var(--accent)] hover:underline"
+            className="text-[var(--accent)] hover:underline touch-manipulation py-2"
           >
             Sign out and try again
           </button>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Folder, Tag as TagIcon, FileText } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, Tag as TagIcon, FileText, Menu } from "lucide-react";
 import { useSignOut } from "@zod-vault/client";
 import { useVaultStore } from "../stores/index.js";
 import { vaultClient } from "../lib/vault-client.js";
@@ -8,6 +8,8 @@ import { TagList } from "./TagList.js";
 import { NewFolderDialog } from "./NewFolderDialog.js";
 import { NewTagDialog } from "./NewTagDialog.js";
 import { SyncStatus } from "./SyncStatus.js";
+import { Sheet, SheetContent } from "./ui/sheet.js";
+import { Button } from "./ui/button.js";
 import type { Note, Folder as FolderType, Tag } from "../schemas/index.js";
 
 interface CollapsibleSectionProps {
@@ -24,7 +26,7 @@ function CollapsibleSection({ title, icon, children, defaultOpen = true }: Colla
     <div className="border-b border-[var(--border)]">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+        className="flex items-center gap-2 w-full px-4 py-3 md:py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors touch-manipulation"
       >
         {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         {icon}
@@ -35,9 +37,20 @@ function CollapsibleSection({ title, icon, children, defaultOpen = true }: Colla
   );
 }
 
-function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
+interface NoteItemProps {
+  note: Note;
+  isActive: boolean;
+  onSelect?: () => void;
+}
+
+function NoteItem({ note, isActive, onSelect }: NoteItemProps) {
   const setCurrentNote = useVaultStore((state) => state.setCurrentNote);
   const deleteNote = useVaultStore((state) => state.deleteNote);
+
+  const handleClick = () => {
+    setCurrentNote(note.id);
+    onSelect?.();
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,11 +78,11 @@ function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
 
   return (
     <div
-      onClick={() => setCurrentNote(note.id)}
-      className={`p-3 cursor-pointer border-b border-[var(--border)] transition-colors group ${
+      onClick={handleClick}
+      className={`p-3 cursor-pointer border-b border-[var(--border)] transition-colors group touch-manipulation ${
         isActive 
           ? "bg-[var(--bg-tertiary)]" 
-          : "hover:bg-[var(--bg-tertiary)]/50"
+          : "hover:bg-[var(--bg-tertiary)]/50 active:bg-[var(--bg-tertiary)]/70"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -86,7 +99,7 @@ function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
         </div>
         <button
           onClick={handleDelete}
-          className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-secondary)] hover:text-red-400 transition-all"
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 md:p-1 text-[var(--text-secondary)] hover:text-red-400 active:text-red-500 transition-all touch-manipulation"
           title="Delete note"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,7 +111,11 @@ function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
   );
 }
 
-export function Sidebar() {
+interface SidebarContentProps {
+  onNoteSelect?: () => void;
+}
+
+export function SidebarContent({ onNoteSelect }: SidebarContentProps) {
   const notes = useVaultStore((state) => state.notes);
   const folders = useVaultStore((state) => state.folders);
   const tags = useVaultStore((state) => state.tags);
@@ -150,6 +167,11 @@ export function Sidebar() {
     setNewTagOpen(true);
   };
 
+  const handleCreateNote = () => {
+    createNote(currentFolderId);
+    onNoteSelect?.();
+  };
+
   // Get current filter description
   const getFilterDescription = () => {
     const parts: string[] = [];
@@ -167,7 +189,7 @@ export function Sidebar() {
   const filterDesc = getFilterDescription();
 
   return (
-    <div className="w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex flex-col h-full">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-[var(--border)]">
         <div className="flex items-center justify-between mb-3">
@@ -177,7 +199,7 @@ export function Sidebar() {
           </div>
           <button
             onClick={() => signOut()}
-            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+            className="p-2 md:p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] active:text-[var(--text-primary)] transition-colors touch-manipulation"
             title="Lock vault"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,8 +208,8 @@ export function Sidebar() {
           </button>
         </div>
         <button
-          onClick={() => createNote(currentFolderId)}
-          className="w-full py-2 px-3 bg-[var(--accent)] hover:bg-[#4393e6] text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          onClick={handleCreateNote}
+          className="w-full py-3 md:py-2 px-3 bg-[var(--accent)] hover:bg-[#4393e6] active:bg-[#3a82d0] text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2 touch-manipulation"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -196,39 +218,43 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Folders Section */}
-      <CollapsibleSection title="Folders" icon={<Folder className="w-4 h-4" />}>
-        <FolderTree onNewFolder={handleNewFolder} onEditFolder={handleEditFolder} />
-      </CollapsibleSection>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Folders Section */}
+        <CollapsibleSection title="Folders" icon={<Folder className="w-4 h-4" />}>
+          <FolderTree onNewFolder={handleNewFolder} onEditFolder={handleEditFolder} />
+        </CollapsibleSection>
 
-      {/* Tags Section */}
-      <CollapsibleSection title="Tags" icon={<TagIcon className="w-4 h-4" />}>
-        <TagList onNewTag={handleNewTag} onEditTag={handleEditTag} />
-      </CollapsibleSection>
+        {/* Tags Section */}
+        <CollapsibleSection title="Tags" icon={<TagIcon className="w-4 h-4" />}>
+          <TagList onNewTag={handleNewTag} onEditTag={handleEditTag} />
+        </CollapsibleSection>
 
-      {/* Notes Section */}
-      <CollapsibleSection title="Notes" icon={<FileText className="w-4 h-4" />} defaultOpen={true}>
-        {filterDesc && (
-          <div className="px-2 py-1 mb-1 text-xs text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
-            Filtered: {filterDesc}
-          </div>
-        )}
-        <div className="max-h-[300px] overflow-y-auto">
-          {filteredNotes.length === 0 ? (
-            <div className="p-2 text-center text-[var(--text-secondary)] text-sm">
-              No notes{filterDesc ? " matching filter" : ""}
+        {/* Notes Section */}
+        <CollapsibleSection title="Notes" icon={<FileText className="w-4 h-4" />} defaultOpen={true}>
+          {filterDesc && (
+            <div className="px-2 py-1 mb-1 text-xs text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
+              Filtered: {filterDesc}
             </div>
-          ) : (
-            filteredNotes.map((note) => (
-              <NoteItem
-                key={note.id}
-                note={note}
-                isActive={note.id === currentNoteId}
-              />
-            ))
           )}
-        </div>
-      </CollapsibleSection>
+          <div className="max-h-[300px] md:max-h-[300px] overflow-y-auto">
+            {filteredNotes.length === 0 ? (
+              <div className="p-2 text-center text-[var(--text-secondary)] text-sm">
+                No notes{filterDesc ? " matching filter" : ""}
+              </div>
+            ) : (
+              filteredNotes.map((note) => (
+                <NoteItem
+                  key={note.id}
+                  note={note}
+                  isActive={note.id === currentNoteId}
+                  onSelect={onNoteSelect}
+                />
+              ))
+            )}
+          </div>
+        </CollapsibleSection>
+      </div>
 
       {/* Footer */}
       <div className="mt-auto p-3 border-t border-[var(--border)] flex items-center justify-between">
@@ -251,5 +277,49 @@ export function Sidebar() {
         editTag={editTag}
       />
     </div>
+  );
+}
+
+// Desktop sidebar - fixed width
+export function Sidebar() {
+  return (
+    <div className="hidden md:flex w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex-col h-full">
+      <SidebarContent />
+    </div>
+  );
+}
+
+// Mobile sidebar - drawer/sheet
+interface MobileSidebarProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 bg-[var(--bg-secondary)] border-r border-[var(--border)]">
+        <SidebarContent onNoteSelect={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// Mobile menu button
+interface MobileMenuButtonProps {
+  onClick: () => void;
+}
+
+export function MobileMenuButton({ onClick }: MobileMenuButtonProps) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="md:hidden h-10 w-10 touch-manipulation"
+      onClick={onClick}
+    >
+      <Menu className="h-5 w-5" />
+      <span className="sr-only">Open menu</span>
+    </Button>
   );
 }
