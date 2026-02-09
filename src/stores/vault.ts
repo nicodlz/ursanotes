@@ -1,6 +1,20 @@
-import { create, type StoreApi, type UseBoundStore } from "zustand";
-import { vault } from "@zod-vault/zustand";
+import { create, type StateCreator } from "zustand";
+import { vault, type VaultOptions } from "@zod-vault/zustand";
 import type { Note, Folder, Tag, Settings } from "../schemas/index.js";
+
+// Type for the vault store API
+interface VaultApi {
+  sync: () => Promise<void>;
+  push: () => Promise<void>;
+  pull: () => Promise<boolean>;
+  rehydrate: () => Promise<void>;
+  hasHydrated: () => boolean;
+  getSyncStatus: () => string;
+  hasPendingChanges: () => boolean;
+  clearStorage: () => Promise<void>;
+  onHydrate: (fn: (state: VaultState) => void) => () => void;
+  onFinishHydration: (fn: (state: VaultState) => void) => () => void;
+}
 
 interface VaultState {
   // Data
@@ -81,23 +95,20 @@ function generateTitle(): string {
 }
 
 // Type for the vault-enhanced store
-type VaultStore = UseBoundStore<StoreApi<VaultState>> & {
-  vault: {
-    sync: () => Promise<void>;
-    push: () => Promise<void>;
-    pull: () => Promise<boolean>;
-    rehydrate: () => Promise<void>;
-    hasHydrated: () => boolean;
-    getSyncStatus: () => string;
-    hasPendingChanges: () => boolean;
-    clearStorage: () => Promise<void>;
-    onHydrate: (fn: (state: VaultState) => void) => () => void;
-    onFinishHydration: (fn: (state: VaultState) => void) => () => void;
-  };
-};
+interface VaultStore {
+  (): VaultState;
+  <T>(selector: (state: VaultState) => T): T;
+  getState: () => VaultState;
+  setState: (partial: Partial<VaultState> | ((state: VaultState) => Partial<VaultState>)) => void;
+  subscribe: (listener: (state: VaultState) => void) => () => void;
+  vault: VaultApi;
+}
 
 // Store instance - created lazily after authentication
 let vaultStore: VaultStore | null = null;
+
+// Persisted state type (subset of VaultState)
+type PersistedVaultState = Pick<VaultState, "notes" | "folders" | "tags" | "settings" | "currentNoteId">;
 
 /**
  * Initialize the vault store with E2EE using the recovery key
@@ -108,9 +119,9 @@ export async function initializeVaultStore(recoveryKey: string): Promise<VaultSt
     let rehydrationComplete = false;
     let rehydrationError: Error | null = null;
 
-    const store = create<VaultState>()(
-      vault(
-        (set, get) => ({
+    // The vault middleware has complex types that don't play well with strict TS
+    // We use type assertions similar to zustand's persist middleware pattern
+    const storeCreator: StateCreator<VaultState, [], []> = (set, get) => ({
           // Initial state
           notes: [welcomeNote],
           folders: [],
@@ -267,29 +278,34 @@ export async function initializeVaultStore(recoveryKey: string): Promise<VaultSt
           setCurrentNote: (id) => set({ currentNoteId: id }),
           setCurrentFolder: (id) => set({ currentFolderId: id }),
           setCurrentTagFilter: (id) => set({ currentTagFilter: id }),
-        }),
-        {
-          name: "vaultmd-vault",
-          recoveryKey,
-          partialize: (state) => ({
-            notes: state.notes,
-            folders: state.folders,
-            tags: state.tags,
-            settings: state.settings,
-            currentNoteId: state.currentNoteId,
-          }),
-          onRehydrateStorage: () => (_state, error) => {
-            rehydrationComplete = true;
-            if (error) {
-              console.error("Failed to decrypt vault:", error);
-              rehydrationError = error instanceof Error ? error : new Error(String(error));
-            } else {
-              console.log("Vault decrypted successfully");
-            }
-          },
+        });
+
+    const vaultOptions: VaultOptions<VaultState, PersistedVaultState> = {
+      name: "vaultmd-vault",
+      recoveryKey,
+      partialize: (state: VaultState): PersistedVaultState => ({
+        notes: state.notes,
+        folders: state.folders,
+        tags: state.tags,
+        settings: state.settings,
+        currentNoteId: state.currentNoteId,
+      }),
+      onRehydrateStorage: () => (_state: VaultState | undefined, error: unknown) => {
+        rehydrationComplete = true;
+        if (error) {
+          console.error("Failed to decrypt vault:", error);
+          rehydrationError = error instanceof Error ? error : new Error(String(error));
+        } else {
+          console.log("Vault decrypted successfully");
         }
-      )
-    ) as VaultStore;
+      },
+    };
+
+    // Use type assertion to work around complex zustand middleware types
+    // This is a known pattern when using zustand middlewares with strict TS
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vaultMiddleware = vault(storeCreator as any, vaultOptions as any);
+    const store = create(vaultMiddleware as StateCreator<VaultState, [], []>) as unknown as VaultStore;
 
     // Wait for hydration to complete with timeout
     const startTime = Date.now();

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Folder, Tag as TagIcon, FileText } from "lucide-react";
+import { useSignOut } from "@zod-vault/client";
 import { useVaultStore } from "../stores/index.js";
-import { useAuthStore } from "../stores/index.js";
+import { vaultClient } from "../lib/vault-client.js";
 import { FolderTree } from "./FolderTree.js";
 import { TagList } from "./TagList.js";
 import { NewFolderDialog } from "./NewFolderDialog.js";
@@ -105,7 +106,7 @@ export function Sidebar() {
   const currentFolderId = useVaultStore((state) => state.currentFolderId);
   const currentTagFilter = useVaultStore((state) => state.currentTagFilter);
   const createNote = useVaultStore((state) => state.createNote);
-  const logout = useAuthStore((state) => state.logout);
+  const signOut = useSignOut(vaultClient);
 
   // Dialog states
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -175,7 +176,7 @@ export function Sidebar() {
             <h1 className="font-bold text-lg text-[var(--text-primary)]">VaultMD</h1>
           </div>
           <button
-            onClick={logout}
+            onClick={() => signOut()}
             className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             title="Lock vault"
           >

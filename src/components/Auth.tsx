@@ -1,166 +1,210 @@
 import { useState } from "react";
-import { useAuthStore } from "../stores/auth.js";
+import { useSignUp, useSignIn, usePasskeySupport } from "@zod-vault/client";
+import { vaultClient } from "../lib/vault-client.js";
+import { RecoveryKeyDisplay } from "./RecoveryKeyDisplay.js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card.js";
-import { Input } from "./ui/input.js";
 import { Button } from "./ui/button.js";
-import { Label } from "./ui/label.js";
-import { Checkbox } from "./ui/checkbox.js";
-import { Eye, EyeOff, Lock, Loader2, AlertTriangle } from "lucide-react";
+import { Fingerprint, Lock, Loader2, AlertTriangle, ShieldX } from "lucide-react";
 
-export function Auth() {
-  const [passphrase, setPassphrase] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState("");
-  const { login, isLoading, vaultError, setVaultError } = useAuthStore();
+interface AuthProps {
+  onAuthenticated: (recoveryKey: string | null) => void;
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+export function Auth({ onAuthenticated }: AuthProps) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [error, setError] = useState<string | null>(null);
+  const [pendingRecoveryKey, setPendingRecoveryKey] = useState<string | null>(null);
 
-    if (passphrase.length < 8) {
-      setError("Passphrase must be at least 8 characters");
-      return;
-    }
+  const supportsPasskey = usePasskeySupport(vaultClient);
+  const { signUp, isLoading: isSigningUp } = useSignUp(vaultClient);
+  const { signIn, isLoading: isSigningIn } = useSignIn(vaultClient);
 
-    // Clear any previous vault error
-    if (vaultError) {
-      setVaultError(null);
-    }
+  const isLoading = isSigningUp || isSigningIn;
 
+  const handleSignUp = async () => {
+    setError(null);
     try {
-      await login(passphrase, rememberMe);
-    } catch {
-      setError("Failed to unlock vault");
+      const result = await signUp({ usePasskey: true });
+      if (result.success) {
+        if (result.recoveryKey) {
+          // Show recovery key modal before proceeding
+          setPendingRecoveryKey(result.recoveryKey);
+        } else {
+          // No recovery key returned (shouldn't happen but handle it)
+          onAuthenticated(null);
+        }
+      } else {
+        setError(result.error ?? "Sign up failed");
+      }
+    } catch (err) {
+      console.error("Sign up error:", err);
+      setError(err instanceof Error ? err.message : "Sign up failed");
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] p-4">
-      <div className="w-full max-w-md">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-[var(--accent)]/10 mb-4">
-            <Lock className="w-10 h-10 text-[var(--accent)]" />
+  const handleSignIn = async () => {
+    setError(null);
+    try {
+      const result = await signIn({ usePasskey: true });
+      if (result.success) {
+        // Sign in doesn't return recovery key - user should already have it
+        onAuthenticated(null);
+      } else {
+        setError(result.error ?? "Sign in failed");
+      }
+    } catch (err) {
+      console.error("Sign in error:", err);
+      setError(err instanceof Error ? err.message : "Sign in failed");
+    }
+  };
+
+  const handleRecoveryKeyConfirmed = () => {
+    const key = pendingRecoveryKey;
+    setPendingRecoveryKey(null);
+    onAuthenticated(key);
+  };
+
+  // WebAuthn not supported
+  if (!supportsPasskey) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-red-500/10 mb-6">
+            <ShieldX className="w-10 h-10 text-red-400" />
           </div>
-          <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-            VaultMD
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-3">
+            Passkeys Not Supported
           </h1>
-          <p className="text-[var(--text-secondary)]">
-            End-to-end encrypted markdown notes
+          <p className="text-[var(--text-secondary)] mb-6">
+            Your browser doesn&apos;t support WebAuthn passkeys. Please use a modern browser like Chrome, Firefox, Safari, or Edge.
           </p>
+          <Card className="bg-[var(--bg-secondary)] border-[var(--border)]">
+            <CardContent className="pt-6">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Passkeys provide secure, passwordless authentication using your device&apos;s biometrics or security key.
+              </p>
+            </CardContent>
+          </Card>
         </div>
+      </div>
+    );
+  }
 
-        {/* Vault Error Alert */}
-        {vaultError && (
-          <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-red-400">Unable to decrypt vault</p>
-              <p className="text-xs text-red-400/80 mt-1">{vaultError}</p>
+  return (
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] p-4">
+        <div className="w-full max-w-md">
+          {/* Logo and Title */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-[var(--accent)]/10 mb-4">
+              <Lock className="w-10 h-10 text-[var(--accent)]" />
             </div>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
+              VaultMD
+            </h1>
+            <p className="text-[var(--text-secondary)]">
+              End-to-end encrypted markdown notes
+            </p>
           </div>
-        )}
 
-        {/* Auth Card */}
-        <Card className="bg-[var(--bg-secondary)] border-[var(--border)]">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl text-center text-[var(--text-primary)]">
-              {vaultError ? "Try again" : "Unlock your vault"}
-            </CardTitle>
-            <CardDescription className="text-center text-[var(--text-secondary)]">
-              {vaultError 
-                ? "Enter the correct passphrase to access your notes"
-                : "Enter your passphrase to access your notes"
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Passphrase Input */}
-              <div className="space-y-2">
-                <Label htmlFor="passphrase" className="text-[var(--text-secondary)]">
-                  Passphrase
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="passphrase"
-                    type={showPassword ? "text" : "password"}
-                    value={passphrase}
-                    onChange={(e) => {
-                      setPassphrase(e.target.value);
-                      setError("");
-                      if (vaultError) setVaultError(null);
-                    }}
-                    placeholder="Enter your secret passphrase..."
-                    className="pr-10 bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]"
-                    autoFocus
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                {error && !vaultError && (
-                  <p className="text-sm text-red-400">{error}</p>
-                )}
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-400">Authentication failed</p>
+                <p className="text-xs text-red-400/80 mt-1">{error}</p>
               </div>
+            </div>
+          )}
 
-              {/* Remember Me */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked === true)}
-                  disabled={isLoading}
-                />
-                <Label
-                  htmlFor="remember"
-                  className="text-sm text-[var(--text-secondary)] cursor-pointer"
-                >
-                  Remember me this session
-                </Label>
-              </div>
-
-              {/* Submit Button */}
+          {/* Auth Card */}
+          <Card className="bg-[var(--bg-secondary)] border-[var(--border)]">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-xl text-center text-[var(--text-primary)]">
+                {mode === "signin" ? "Welcome back" : "Create your vault"}
+              </CardTitle>
+              <CardDescription className="text-center text-[var(--text-secondary)]">
+                {mode === "signin"
+                  ? "Use your passkey to access your notes"
+                  : "Set up a passkey to secure your notes"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Passkey Button */}
               <Button
-                type="submit"
+                onClick={mode === "signin" ? handleSignIn : handleSignUp}
                 disabled={isLoading}
-                className="w-full bg-[var(--accent)] hover:bg-[#4393e6] text-white"
+                className="w-full h-14 bg-[var(--accent)] hover:bg-[#4393e6] text-white"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Unlocking...
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    {mode === "signin" ? "Authenticating..." : "Creating vault..."}
                   </>
                 ) : (
-                  "Unlock Vault"
+                  <>
+                    <Fingerprint className="w-5 h-5 mr-2" />
+                    {mode === "signin" ? "Sign in with Passkey" : "Create Passkey"}
+                  </>
                 )}
               </Button>
 
-              {/* Security Note */}
-              <p className="text-xs text-[var(--text-secondary)] text-center">
-                Your passphrase never leaves your device. It derives an encryption key for your notes.
-              </p>
-            </form>
-          </CardContent>
-        </Card>
+              {/* Mode Toggle */}
+              <div className="text-center pt-2">
+                {mode === "signin" ? (
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Don&apos;t have a vault?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("signup");
+                        setError(null);
+                      }}
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      Create one
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Already have a vault?{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("signin");
+                        setError(null);
+                      }}
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      Sign in
+                    </button>
+                  </p>
+                )}
+              </div>
 
-        {/* First Time Hint */}
-        {!vaultError && (
+              {/* Security Note */}
+              <p className="text-xs text-[var(--text-secondary)] text-center pt-2">
+                Your notes are encrypted with a recovery key that only you possess.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Passkey Info */}
           <div className="mt-6 text-center text-sm text-[var(--text-secondary)]">
-            <p>First time? Just enter a passphrase to create your vault.</p>
+            <p>🔐 Passkeys use your device&apos;s biometrics or security key for secure, passwordless authentication.</p>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      {/* Recovery Key Modal */}
+      {pendingRecoveryKey && (
+        <RecoveryKeyDisplay
+          recoveryKey={pendingRecoveryKey}
+          open={true}
+          onContinue={handleRecoveryKeyConfirmed}
+        />
+      )}
+    </>
   );
 }
