@@ -5,14 +5,14 @@ import { Input } from "./ui/input.js";
 import { Button } from "./ui/button.js";
 import { Label } from "./ui/label.js";
 import { Checkbox } from "./ui/checkbox.js";
-import { Eye, EyeOff, Lock, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Lock, Loader2, AlertTriangle } from "lucide-react";
 
 export function Auth() {
   const [passphrase, setPassphrase] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading, vaultError, setVaultError } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +20,11 @@ export function Auth() {
     if (passphrase.length < 8) {
       setError("Passphrase must be at least 8 characters");
       return;
+    }
+
+    // Clear any previous vault error
+    if (vaultError) {
+      setVaultError(null);
     }
 
     try {
@@ -45,14 +50,28 @@ export function Auth() {
           </p>
         </div>
 
+        {/* Vault Error Alert */}
+        {vaultError && (
+          <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-400">Unable to decrypt vault</p>
+              <p className="text-xs text-red-400/80 mt-1">{vaultError}</p>
+            </div>
+          </div>
+        )}
+
         {/* Auth Card */}
         <Card className="bg-[var(--bg-secondary)] border-[var(--border)]">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl text-center text-[var(--text-primary)]">
-              Unlock your vault
+              {vaultError ? "Try again" : "Unlock your vault"}
             </CardTitle>
             <CardDescription className="text-center text-[var(--text-secondary)]">
-              Enter your passphrase to access your notes
+              {vaultError 
+                ? "Enter the correct passphrase to access your notes"
+                : "Enter your passphrase to access your notes"
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -70,6 +89,7 @@ export function Auth() {
                     onChange={(e) => {
                       setPassphrase(e.target.value);
                       setError("");
+                      if (vaultError) setVaultError(null);
                     }}
                     placeholder="Enter your secret passphrase..."
                     className="pr-10 bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]"
@@ -89,7 +109,7 @@ export function Auth() {
                     )}
                   </button>
                 </div>
-                {error && (
+                {error && !vaultError && (
                   <p className="text-sm text-red-400">{error}</p>
                 )}
               </div>
@@ -106,7 +126,7 @@ export function Auth() {
                   htmlFor="remember"
                   className="text-sm text-[var(--text-secondary)] cursor-pointer"
                 >
-                  Remember me on this device
+                  Remember me this session
                 </Label>
               </div>
 
@@ -135,9 +155,11 @@ export function Auth() {
         </Card>
 
         {/* First Time Hint */}
-        <div className="mt-6 text-center text-sm text-[var(--text-secondary)]">
-          <p>First time? Just enter a passphrase to create your vault.</p>
-        </div>
+        {!vaultError && (
+          <div className="mt-6 text-center text-sm text-[var(--text-secondary)]">
+            <p>First time? Just enter a passphrase to create your vault.</p>
+          </div>
+        )}
       </div>
     </div>
   );

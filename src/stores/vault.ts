@@ -1,25 +1,6 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { create, type StoreApi, type UseBoundStore } from "zustand";
+import { vault } from "@zod-vault/zustand";
 import type { Note, Folder, Tag, Settings } from "../schemas/index.js";
-
-// TODO: Replace localStorage persist with vault() middleware from @zod-vault/zustand
-// This would enable true E2EE sync across devices:
-//
-// import { vault } from "@zod-vault/zustand";
-// import { getRecoveryKey } from "./auth.js";
-//
-// export const useVaultStore = create<VaultState>()(
-//   vault(
-//     (set, get) => ({ ... }),
-//     {
-//       name: "vaultmd",
-//       getKey: () => getRecoveryKey(),
-//       serverUrl: "https://your-zod-vault-server.com",
-//     }
-//   )
-// );
-//
-// The vault middleware encrypts all data before storage/sync using the recovery key.
 
 interface VaultState {
   // Data
@@ -99,178 +80,276 @@ function generateTitle(): string {
   return `Note ${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-export const useVaultStore = create<VaultState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      notes: [welcomeNote],
-      folders: [],
-      tags: [],
-      settings: defaultSettings,
-      currentNoteId: welcomeNote.id,
-      currentFolderId: null,
-      currentTagFilter: null,
+// Type for the vault-enhanced store
+type VaultStore = UseBoundStore<StoreApi<VaultState>> & {
+  vault: {
+    sync: () => Promise<void>;
+    push: () => Promise<void>;
+    pull: () => Promise<boolean>;
+    rehydrate: () => Promise<void>;
+    hasHydrated: () => boolean;
+    getSyncStatus: () => string;
+    hasPendingChanges: () => boolean;
+    clearStorage: () => Promise<void>;
+    onHydrate: (fn: (state: VaultState) => void) => () => void;
+    onFinishHydration: (fn: (state: VaultState) => void) => () => void;
+  };
+};
 
-      // Note actions
-      createNote: (folderId = null) => {
-        const newNote: Note = {
-          id: crypto.randomUUID(),
-          title: generateTitle(),
-          content: "# New Note\n\nStart writing...",
-          folderId,
+// Store instance - created lazily after authentication
+let vaultStore: VaultStore | null = null;
+
+/**
+ * Initialize the vault store with E2EE using the recovery key
+ * Must be called after authentication
+ */
+export async function initializeVaultStore(recoveryKey: string): Promise<VaultStore> {
+  return new Promise((resolve, reject) => {
+    let rehydrationComplete = false;
+    let rehydrationError: Error | null = null;
+
+    const store = create<VaultState>()(
+      vault(
+        (set, get) => ({
+          // Initial state
+          notes: [welcomeNote],
+          folders: [],
           tags: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        set((state) => ({
-          notes: [newNote, ...state.notes],
-          currentNoteId: newNote.id,
-        }));
-        return newNote;
-      },
+          settings: defaultSettings,
+          currentNoteId: welcomeNote.id,
+          currentFolderId: null,
+          currentTagFilter: null,
 
-      updateNote: (id, updates) => {
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id === id
-              ? { ...note, ...updates, updatedAt: Date.now() }
-              : note
-          ),
-        }));
-      },
+          // Note actions
+          createNote: (folderId = null) => {
+            const newNote: Note = {
+              id: crypto.randomUUID(),
+              title: generateTitle(),
+              content: "# New Note\n\nStart writing...",
+              folderId,
+              tags: [],
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            set((state) => ({
+              notes: [newNote, ...state.notes],
+              currentNoteId: newNote.id,
+            }));
+            return newNote;
+          },
 
-      deleteNote: (id) => {
-        set((state) => {
-          const newNotes = state.notes.filter((note) => note.id !== id);
-          const newCurrentId =
-            state.currentNoteId === id
-              ? newNotes[0]?.id || null
-              : state.currentNoteId;
-          return { notes: newNotes, currentNoteId: newCurrentId };
-        });
-      },
+          updateNote: (id, updates) => {
+            set((state) => ({
+              notes: state.notes.map((note) =>
+                note.id === id
+                  ? { ...note, ...updates, updatedAt: Date.now() }
+                  : note
+              ),
+            }));
+          },
 
-      getNote: (id) => {
-        return get().notes.find((note) => note.id === id);
-      },
+          deleteNote: (id) => {
+            set((state) => {
+              const newNotes = state.notes.filter((note) => note.id !== id);
+              const newCurrentId =
+                state.currentNoteId === id
+                  ? newNotes[0]?.id || null
+                  : state.currentNoteId;
+              return { notes: newNotes, currentNoteId: newCurrentId };
+            });
+          },
 
-      // Folder actions
-      createFolder: (name, parentId = null) => {
-        const newFolder: Folder = {
-          id: crypto.randomUUID(),
-          name,
-          parentId,
-          createdAt: Date.now(),
-        };
-        set((state) => ({
-          folders: [...state.folders, newFolder],
-        }));
-        return newFolder;
-      },
+          getNote: (id) => {
+            return get().notes.find((note) => note.id === id);
+          },
 
-      updateFolder: (id, updates) => {
-        set((state) => ({
-          folders: state.folders.map((folder) =>
-            folder.id === id ? { ...folder, ...updates } : folder
-          ),
-        }));
-      },
+          // Folder actions
+          createFolder: (name, parentId = null) => {
+            const newFolder: Folder = {
+              id: crypto.randomUUID(),
+              name,
+              parentId,
+              createdAt: Date.now(),
+            };
+            set((state) => ({
+              folders: [...state.folders, newFolder],
+            }));
+            return newFolder;
+          },
 
-      deleteFolder: (id) => {
-        set((state) => ({
-          folders: state.folders.filter((folder) => folder.id !== id),
-          // Move notes from deleted folder to root
-          notes: state.notes.map((note) =>
-            note.folderId === id ? { ...note, folderId: null } : note
-          ),
-          currentFolderId:
-            state.currentFolderId === id ? null : state.currentFolderId,
-        }));
-      },
+          updateFolder: (id, updates) => {
+            set((state) => ({
+              folders: state.folders.map((folder) =>
+                folder.id === id ? { ...folder, ...updates } : folder
+              ),
+            }));
+          },
 
-      moveNoteToFolder: (noteId, folderId) => {
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id === noteId
-              ? { ...note, folderId, updatedAt: Date.now() }
-              : note
-          ),
-        }));
-      },
+          deleteFolder: (id) => {
+            set((state) => ({
+              folders: state.folders.filter((folder) => folder.id !== id),
+              notes: state.notes.map((note) =>
+                note.folderId === id ? { ...note, folderId: null } : note
+              ),
+              currentFolderId:
+                state.currentFolderId === id ? null : state.currentFolderId,
+            }));
+          },
 
-      // Tag actions
-      createTag: (name, color) => {
-        const newTag: Tag = {
-          id: crypto.randomUUID(),
-          name,
-          color,
-        };
-        set((state) => ({
-          tags: [...state.tags, newTag],
-        }));
-        return newTag;
-      },
+          moveNoteToFolder: (noteId, folderId) => {
+            set((state) => ({
+              notes: state.notes.map((note) =>
+                note.id === noteId
+                  ? { ...note, folderId, updatedAt: Date.now() }
+                  : note
+              ),
+            }));
+          },
 
-      updateTag: (id, updates) => {
-        set((state) => ({
-          tags: state.tags.map((tag) =>
-            tag.id === id ? { ...tag, ...updates } : tag
-          ),
-        }));
-      },
+          // Tag actions
+          createTag: (name, color) => {
+            const newTag: Tag = {
+              id: crypto.randomUUID(),
+              name,
+              color,
+            };
+            set((state) => ({
+              tags: [...state.tags, newTag],
+            }));
+            return newTag;
+          },
 
-      deleteTag: (id) => {
-        set((state) => ({
-          tags: state.tags.filter((tag) => tag.id !== id),
-          // Remove tag from all notes
-          notes: state.notes.map((note) => ({
-            ...note,
-            tags: note.tags.filter((tagId) => tagId !== id),
-          })),
-          currentTagFilter:
-            state.currentTagFilter === id ? null : state.currentTagFilter,
-        }));
-      },
+          updateTag: (id, updates) => {
+            set((state) => ({
+              tags: state.tags.map((tag) =>
+                tag.id === id ? { ...tag, ...updates } : tag
+              ),
+            }));
+          },
 
-      addTagToNote: (noteId, tagId) => {
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id === noteId && !note.tags.includes(tagId)
-              ? { ...note, tags: [...note.tags, tagId], updatedAt: Date.now() }
-              : note
-          ),
-        }));
-      },
+          deleteTag: (id) => {
+            set((state) => ({
+              tags: state.tags.filter((tag) => tag.id !== id),
+              notes: state.notes.map((note) => ({
+                ...note,
+                tags: note.tags.filter((tagId) => tagId !== id),
+              })),
+              currentTagFilter:
+                state.currentTagFilter === id ? null : state.currentTagFilter,
+            }));
+          },
 
-      removeTagFromNote: (noteId, tagId) => {
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id === noteId
-              ? {
-                  ...note,
-                  tags: note.tags.filter((t) => t !== tagId),
-                  updatedAt: Date.now(),
-                }
-              : note
-          ),
-        }));
-      },
+          addTagToNote: (noteId, tagId) => {
+            set((state) => ({
+              notes: state.notes.map((note) =>
+                note.id === noteId && !note.tags.includes(tagId)
+                  ? { ...note, tags: [...note.tags, tagId], updatedAt: Date.now() }
+                  : note
+              ),
+            }));
+          },
 
-      // Navigation
-      setCurrentNote: (id) => set({ currentNoteId: id }),
-      setCurrentFolder: (id) => set({ currentFolderId: id }),
-      setCurrentTagFilter: (id) => set({ currentTagFilter: id }),
-    }),
-    {
-      name: "vaultmd-vault",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        notes: state.notes,
-        folders: state.folders,
-        tags: state.tags,
-        settings: state.settings,
-        currentNoteId: state.currentNoteId,
-      }),
-    }
-  )
-);
+          removeTagFromNote: (noteId, tagId) => {
+            set((state) => ({
+              notes: state.notes.map((note) =>
+                note.id === noteId
+                  ? {
+                      ...note,
+                      tags: note.tags.filter((t) => t !== tagId),
+                      updatedAt: Date.now(),
+                    }
+                  : note
+              ),
+            }));
+          },
+
+          // Navigation
+          setCurrentNote: (id) => set({ currentNoteId: id }),
+          setCurrentFolder: (id) => set({ currentFolderId: id }),
+          setCurrentTagFilter: (id) => set({ currentTagFilter: id }),
+        }),
+        {
+          name: "vaultmd-vault",
+          recoveryKey,
+          partialize: (state) => ({
+            notes: state.notes,
+            folders: state.folders,
+            tags: state.tags,
+            settings: state.settings,
+            currentNoteId: state.currentNoteId,
+          }),
+          onRehydrateStorage: () => (_state, error) => {
+            rehydrationComplete = true;
+            if (error) {
+              console.error("Failed to decrypt vault:", error);
+              rehydrationError = error instanceof Error ? error : new Error(String(error));
+            } else {
+              console.log("Vault decrypted successfully");
+            }
+          },
+        }
+      )
+    ) as VaultStore;
+
+    // Wait for hydration to complete with timeout
+    const startTime = Date.now();
+    const timeout = 30000; // 30 seconds
+
+    const checkHydration = () => {
+      if (rehydrationComplete) {
+        if (rehydrationError) {
+          vaultStore = null;
+          reject(rehydrationError);
+        } else {
+          vaultStore = store;
+          resolve(store);
+        }
+      } else if (Date.now() - startTime > timeout) {
+        vaultStore = null;
+        reject(new Error("Vault initialization timeout"));
+      } else {
+        setTimeout(checkHydration, 50);
+      }
+    };
+
+    // Start checking after a brief delay to allow hydration to begin
+    setTimeout(checkHydration, 50);
+  });
+}
+
+/**
+ * Get the vault store instance
+ * Throws if not initialized
+ */
+export function getVaultStore(): VaultStore {
+  if (!vaultStore) {
+    throw new Error("Vault not initialized. Call initializeVaultStore first.");
+  }
+  return vaultStore;
+}
+
+/**
+ * Check if vault store is initialized
+ */
+export function isVaultInitialized(): boolean {
+  return vaultStore !== null;
+}
+
+/**
+ * Clear the vault store (for logout)
+ */
+export function clearVaultStore(): void {
+  vaultStore = null;
+}
+
+/**
+ * Hook to use the vault store
+ * For use in React components after vault is initialized
+ */
+export function useVaultStore<T>(selector: (state: VaultState) => T): T {
+  const store = getVaultStore();
+  return store(selector);
+}
+
+// Re-export types
+export type { VaultState };

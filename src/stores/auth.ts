@@ -5,7 +5,7 @@ import { passphraseToRecoveryKey } from "../lib/crypto.js";
 // Store the recovery key in module scope (set during auth)
 let currentRecoveryKey: string | null = null;
 
-const STORAGE_KEY = "vaultmd-remember-key";
+const REMEMBER_KEY = "vaultmd-remember-key";
 
 export function setRecoveryKey(key: string): void {
   currentRecoveryKey = key;
@@ -22,40 +22,44 @@ export function clearRecoveryKey(): void {
 // Check for remembered key on module load
 function loadRememberedKey(): string | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = sessionStorage.getItem(REMEMBER_KEY);
     if (stored) {
       return stored;
     }
   } catch {
-    // localStorage not available
+    // sessionStorage not available
   }
   return null;
 }
 
 function saveRememberedKey(key: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, key);
+    // Use sessionStorage for security - clears on browser close
+    sessionStorage.setItem(REMEMBER_KEY, key);
   } catch {
-    // localStorage not available
+    // sessionStorage not available
   }
 }
 
 function clearRememberedKey(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(REMEMBER_KEY);
   } catch {
-    // localStorage not available
+    // sessionStorage not available
   }
 }
 
 interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
+  vaultError: string | null;
 
   // Actions
-  login: (passphrase: string, rememberMe?: boolean) => Promise<void>;
+  login: (passphrase: string, rememberMe?: boolean) => Promise<string>;
   logout: () => void;
-  checkRememberedSession: () => boolean;
+  checkRememberedSession: () => string | null;
+  setVaultError: (error: string | null) => void;
+  clearAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -63,9 +67,10 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       isAuthenticated: false,
       isLoading: false,
+      vaultError: null,
 
       login: async (passphrase: string, rememberMe = false) => {
-        set({ isLoading: true });
+        set({ isLoading: true, vaultError: null });
 
         try {
           // Derive recovery key from passphrase
@@ -74,12 +79,13 @@ export const useAuthStore = create<AuthState>()(
           // Store the recovery key for E2EE operations
           setRecoveryKey(recoveryKey);
 
-          // If "remember me", persist the key
+          // If "remember me", persist the key in sessionStorage
           if (rememberMe) {
             saveRememberedKey(recoveryKey);
           }
 
           set({ isAuthenticated: true, isLoading: false });
+          return recoveryKey;
         } catch (error) {
           console.error("Login failed:", error);
           set({ isLoading: false });
@@ -90,7 +96,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         clearRecoveryKey();
         clearRememberedKey();
-        set({ isAuthenticated: false });
+        set({ isAuthenticated: false, vaultError: null });
       },
 
       checkRememberedSession: () => {
@@ -98,18 +104,27 @@ export const useAuthStore = create<AuthState>()(
         if (rememberedKey) {
           setRecoveryKey(rememberedKey);
           set({ isAuthenticated: true });
-          return true;
+          return rememberedKey;
         }
-        return false;
+        return null;
+      },
+
+      setVaultError: (error: string | null) => {
+        set({ vaultError: error, isAuthenticated: false, isLoading: false });
+        clearRecoveryKey();
+        clearRememberedKey();
+      },
+
+      clearAuth: () => {
+        clearRecoveryKey();
+        clearRememberedKey();
+        set({ isAuthenticated: false, vaultError: null, isLoading: false });
       },
     }),
     {
       name: "vaultmd-auth",
       storage: createJSONStorage(() => localStorage),
-      partialize: () => ({
-        // Don't persist auth state - require login each session for security
-        // (unless "remember me" is checked, handled separately)
-      }),
+      partialize: () => ({}),
     }
   )
 );

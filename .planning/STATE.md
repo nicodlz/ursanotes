@@ -2,36 +2,64 @@
 
 ## Current Position
 - **Milestone:** v1.0.0
-- **Phase:** 2
-- **Task:** Data Model & Zustand Store
-- **Status:** Ready to start
-
-## Active Context
-Phase 1 complete. Ready to implement Zod schemas and Zustand store for notes, folders, tags.
+- **Phase:** 6 (Polish & Deploy)
+- **Status:** Core features complete ✅
 
 ## Completed Phases
-- [x] Phase 1: Setup & Core Layout (3 commits, ~6.5 min)
+- [x] Phase 1: Setup & Core Layout (3 commits)
+- [x] Phase 2: Data Model & Zustand Store (1 commit)
+- [x] Phase 3: Markdown Editor & Preview (1 commit)
+- [x] Phase 4: Folders & Tags UI (1 commit)
+- [x] Phase 5: Authentication (1 commit)
 
-## Phase 1 Commits
+## All Commits
 | Hash | Description |
 |------|-------------|
-| 08ecf4e | feat(01-01): setup Tailwind and shadcn/ui |
-| b6123e4 | feat(01-02): add responsive layout with header and sidebar |
-| 9370f8b | feat(01-03): add dark/light theme with persistence |
+| f93a1fe | feat: initial vaultmd setup with Phase 1 complete |
+| bf03bbb | feat(02-01): add Zod schemas and Vault store |
+| 66d98de | feat(03-01): refactor Editor and Preview with split view |
+| 036d541 | feat(04-01): add folders and tags UI |
+| 81d325c | feat(05-01): add authentication with passphrase |
 
-## Decisions Made
-| Decision | Rationale | Date |
-|----------|-----------|------|
-| Solo app, no collab | E2EE makes real-time collab complex | 2026-02-09 |
-| No sharing | Can't share E2E encrypted content without key exchange | 2026-02-09 |
-| Folders + Tags | Richer Zod schema for better demo | 2026-02-09 |
-| localStorage for "remember me" | Industry standard, acceptable risk | 2026-02-09 |
-| shadcn/ui only | No custom CSS, clean showcase | 2026-02-09 |
-| Dark/light with system | Full theme support implemented | 2026-02-09 |
-| Tailwind 4 | Project already had Tailwind 4 setup | 2026-02-09 |
+## Features Implemented
+### Authentication
+- Passphrase entry screen
+- Key derivation with @zod-vault/crypto
+- "Remember me" option (localStorage)
+- Logout functionality
+- Loading states
 
-## Blockers
-- None
+### Notes
+- Create, edit, delete notes
+- Markdown editor (CodeMirror 6)
+- Live preview (react-markdown + GFM)
+- Split view layout
+- Auto-save (debounced)
+- Keyboard shortcuts (Ctrl+B, Ctrl+I, etc.)
+
+### Organization
+- Folders (nested, collapsible)
+- Tags (colored badges)
+- Filter notes by folder/tag
+- Move notes between folders
+- Assign multiple tags to notes
+
+### UI
+- Responsive layout (mobile drawer)
+- Dark/light theme with toggle
+- shadcn/ui components
+- Sync status indicator
+
+## Deployment
+- **URL:** https://vaultmd.ndlz.net
+- **Hosting:** Coolify
+- **App UUID:** fkss84sgckgg8gwgs0wsskgw
+
+## What's Left (Phase 6)
+- [ ] Loading/empty states polish
+- [ ] Mobile responsive testing
+- [ ] Final QA
+- [ ] README with screenshots
 
 ## Last Updated
-2026-02-09T19:32:00Z
+2026-02-09T19:52:00Z
