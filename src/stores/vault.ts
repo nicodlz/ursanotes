@@ -2,6 +2,10 @@ import { create, type StateCreator } from "zustand";
 import { vault, type VaultOptionsJwk } from "@zod-vault/zustand";
 import type { CipherJWK } from "@zod-vault/crypto";
 import type { Note, Folder, Tag, Settings } from "../schemas/index.js";
+import { vaultClient } from "../lib/vault-client.js";
+
+// Server URL for sync
+const SERVER_URL = import.meta.env.VITE_VAULT_SERVER_URL ?? "https://vault.ndlz.net";
 
 // Type for the vault store API
 interface VaultApi {
@@ -284,6 +288,15 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
     const vaultOptions: VaultOptionsJwk<VaultState, PersistedVaultState> = {
       name: "vaultmd-vault",
       cipherJwk,
+      // Cloud sync configuration
+      server: SERVER_URL,
+      getToken: () => {
+        // Get auth token from vaultClient for server requests
+        const header = vaultClient.getAuthHeader();
+        const auth = header["Authorization"];
+        return auth ? auth.replace("Bearer ", "") : null;
+      },
+      syncInterval: 30000, // Sync every 30 seconds
       partialize: (state: VaultState): PersistedVaultState => ({
         notes: state.notes,
         folders: state.folders,
