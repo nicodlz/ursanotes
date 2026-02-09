@@ -1,5 +1,6 @@
 import { create, type StateCreator } from "zustand";
-import { vault, type VaultOptions } from "@zod-vault/zustand";
+import { vault, type VaultOptionsJwk } from "@zod-vault/zustand";
+import type { CipherJWK } from "@zod-vault/crypto";
 import type { Note, Folder, Tag, Settings } from "../schemas/index.js";
 
 // Type for the vault store API
@@ -69,9 +70,9 @@ Your **end-to-end encrypted** markdown notes.
 ## Features
 
 - ✨ Beautiful markdown editor with syntax highlighting
-- 🔒 E2EE with your passphrase (never leaves your device)
+- 🔒 E2EE with your passkey (keys derived from PRF - no recovery key needed!)
 - 📱 Offline-first - works without internet
-- 🔄 Sync across devices
+- 🔄 Sync across devices with the same passkey
 
 ## Getting Started
 
@@ -111,10 +112,10 @@ let vaultStore: VaultStore | null = null;
 type PersistedVaultState = Pick<VaultState, "notes" | "folders" | "tags" | "settings" | "currentNoteId">;
 
 /**
- * Initialize the vault store with E2EE using the recovery key
+ * Initialize the vault store with E2EE using the CipherJWK from ZKCredentials
  * Must be called after authentication
  */
-export async function initializeVaultStore(recoveryKey: string): Promise<VaultStore> {
+export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultStore> {
   return new Promise((resolve, reject) => {
     let rehydrationComplete = false;
     let rehydrationError: Error | null = null;
@@ -280,9 +281,9 @@ export async function initializeVaultStore(recoveryKey: string): Promise<VaultSt
           setCurrentTagFilter: (id) => set({ currentTagFilter: id }),
         });
 
-    const vaultOptions: VaultOptions<VaultState, PersistedVaultState> = {
+    const vaultOptions: VaultOptionsJwk<VaultState, PersistedVaultState> = {
       name: "vaultmd-vault",
-      recoveryKey,
+      cipherJwk,
       partialize: (state: VaultState): PersistedVaultState => ({
         notes: state.notes,
         folders: state.folders,
@@ -304,7 +305,7 @@ export async function initializeVaultStore(recoveryKey: string): Promise<VaultSt
     // Use type assertion to work around complex zustand middleware types
     // This is a known pattern when using zustand middlewares with strict TS
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const vaultMiddleware = vault(storeCreator as any, vaultOptions as any);
+    const vaultMiddleware = vault(storeCreator as unknown as StateCreator<VaultState, [], []>, vaultOptions as unknown as VaultOptionsJwk<VaultState, VaultState>);
     const store = create(vaultMiddleware as StateCreator<VaultState, [], []>) as unknown as VaultStore;
 
     // Wait for hydration to complete with timeout

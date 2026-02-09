@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@zod-vault/client";
+import { useAuth, type ZKCredential } from "@zod-vault/client";
 import { vaultClient } from "../lib/vault-client.js";
 import { initializeVaultStore, getVaultStore, isVaultInitialized, clearVaultStore } from "../stores/vault.js";
 import { Auth } from "./Auth.js";
@@ -7,15 +7,15 @@ import { Sidebar, MobileSidebar, MobileMenuButton } from "./Sidebar.js";
 import { SplitView } from "./SplitView.js";
 import { FileText, Loader2 } from "lucide-react";
 
-// Store recovery key in memory after signup
-let currentRecoveryKey: string | null = null;
+// Store credential in memory after auth
+let currentCredential: ZKCredential | null = null;
 
-export function setRecoveryKey(key: string | null): void {
-  currentRecoveryKey = key;
+export function setCredential(credential: ZKCredential | null): void {
+  currentCredential = credential;
 }
 
-export function getRecoveryKey(): string | null {
-  return currentRecoveryKey;
+export function getCredential(): ZKCredential | null {
+  return currentCredential;
 }
 
 function EmptyState({ onMenuClick }: { onMenuClick: () => void }) {
@@ -94,22 +94,18 @@ function MainLayout() {
 }
 
 export function App() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth(vaultClient);
+  const { isAuthenticated, isLoading: isAuthLoading, credential: stateCredential } = useAuth(vaultClient);
   const [vaultReady, setVaultReady] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
 
-  const initializeVault = useCallback(async () => {
-    const recoveryKey = getRecoveryKey();
+  const initializeVault = useCallback(async (providedCredential?: ZKCredential) => {
+    const credential = providedCredential ?? stateCredential ?? getCredential();
     
-    // For now, vault initialization needs the recovery key
-    // In the future, this will be fetched from the server using the auth token
-    if (!recoveryKey) {
-      // If we have auth but no recovery key, user signed in (not signed up)
-      // They need to provide their recovery key to decrypt
-      // For now, just mark vault as ready (local-only mode)
-      console.log("No recovery key available - vault features limited");
-      setVaultReady(true);
+    // If no credential, we can't initialize (shouldn't happen in normal flow)
+    if (!credential) {
+      console.error("No credential available for vault initialization");
+      setVaultError("No encryption key available. Please sign in again.");
       return;
     }
 
@@ -117,7 +113,13 @@ export function App() {
     setVaultError(null);
 
     try {
-      await initializeVaultStore(recoveryKey);
+      // Use the cipherJwk from the credential for encryption
+      await initializeVaultStore(credential.cipherJwk);
+      
+      // Store for future use in this session
+      if (providedCredential) {
+        setCredential(providedCredential);
+      }
       setVaultReady(true);
     } catch (error) {
       console.error("Vault initialization failed:", error);
@@ -130,26 +132,27 @@ export function App() {
     } finally {
       setIsInitializing(false);
     }
-  }, []);
+  }, [stateCredential]);
 
-  const handleAuthenticated = useCallback((recoveryKey: string | null) => {
-    if (recoveryKey) {
-      setRecoveryKey(recoveryKey);
-    }
-  }, []);
+  const handleAuthenticated = useCallback((credential: ZKCredential) => {
+    setCredential(credential);
+    // Immediately initialize vault with the credential
+    void initializeVault(credential);
+  }, [initializeVault]);
 
+  // If we have state credential but no vault yet, initialize
   useEffect(() => {
-    if (isAuthenticated && !vaultReady && !isInitializing && !vaultError) {
-      initializeVault();
+    if (isAuthenticated && stateCredential && !vaultReady && !isInitializing && !vaultError) {
+      initializeVault(stateCredential);
     }
-  }, [isAuthenticated, vaultReady, isInitializing, vaultError, initializeVault]);
+  }, [isAuthenticated, stateCredential, vaultReady, isInitializing, vaultError, initializeVault]);
 
   // Reset vault ready state when logged out
   useEffect(() => {
     if (!isAuthenticated) {
       setVaultReady(false);
       setVaultError(null);
-      setRecoveryKey(null);
+      setCredential(null);
       clearVaultStore();
     }
   }, [isAuthenticated]);
@@ -187,7 +190,7 @@ export function App() {
 
   // Initializing vault
   if (isInitializing || !vaultReady) {
-    return <LoadingState message="Initializing vault..." />;
+    return <LoadingState message="Decrypting vault..." />;
   }
 
   return <MainLayout />;
