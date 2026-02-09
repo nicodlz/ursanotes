@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth, type ZKCredential } from "@zod-vault/client";
 import { vaultClient } from "../lib/vault-client.js";
-import { initializeVaultStore, getVaultStore, isVaultInitialized, clearVaultStore } from "../stores/vault.js";
+import { initializeVaultStore, getVaultStore, clearVaultStore } from "../stores/vault.js";
 import { Auth } from "./Auth.js";
 import { Sidebar, MobileSidebar, MobileMenuButton } from "./Sidebar.js";
 import { SplitView } from "./SplitView.js";
@@ -55,23 +55,11 @@ function LoadingState({ message }: { message?: string }) {
 }
 
 function MainLayout() {
-  const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    if (isVaultInitialized()) {
-      const store = getVaultStore();
-      const state = store.getState();
-      setCurrentNoteId(state.currentNoteId);
-
-      // Subscribe to changes
-      const unsubscribe = store.subscribe((state) => {
-        setCurrentNoteId(state.currentNoteId);
-      });
-
-      return () => unsubscribe();
-    }
-  }, []);
+  
+  // Use the vault store directly for reactive updates
+  const store = getVaultStore();
+  const currentNoteId = store((state) => state.currentNoteId);
 
   return (
     <div className="h-screen flex overflow-hidden">
