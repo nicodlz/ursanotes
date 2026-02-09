@@ -1,12 +1,12 @@
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { useNotesStore } from '../stores/notes'
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useVaultStore } from "../stores/index.js";
 
 export function Preview() {
-  const notes = useNotesStore((s) => s.notes)
-  const activeNoteId = useNotesStore((s) => s.activeNoteId)
+  const notes = useVaultStore((state) => state.notes);
+  const currentNoteId = useVaultStore((state) => state.currentNoteId);
 
-  const activeNote = notes.find((n) => n.id === activeNoteId)
+  const activeNote = notes.find((note) => note.id === currentNoteId);
 
   if (!activeNote) {
     return (
@@ -16,7 +16,7 @@ export function Preview() {
           <p>Preview will appear here</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -27,5 +27,5 @@ export function Preview() {
         </ReactMarkdown>
       </div>
     </div>
-  )
+  );
 }

@@ -1,41 +1,42 @@
-import { useNotesStore, type Note } from '../stores/notes'
-import { useAuthStore } from '../stores/auth'
+import { useVaultStore } from "../stores/index.js";
+import { useAuthStore } from "../stores/index.js";
+import type { Note } from "../schemas/index.js";
 
 function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
-  const setActiveNote = useNotesStore((s) => s.setActiveNote)
-  const deleteNote = useNotesStore((s) => s.deleteNote)
+  const setCurrentNote = useVaultStore((state) => state.setCurrentNote);
+  const deleteNote = useVaultStore((state) => state.deleteNote);
 
   const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (confirm('Delete this note?')) {
-      deleteNote(note.id)
+    e.stopPropagation();
+    if (confirm("Delete this note?")) {
+      deleteNote(note.id);
     }
-  }
+  };
 
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const isToday = date.toDateString() === now.toDateString()
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
     
     if (isToday) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
-  }
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
 
   // Extract first line of content as preview
   const preview = note.content
-    .split('\n')
-    .find(line => line.trim() && !line.startsWith('#'))
-    ?.slice(0, 50) || ''
+    .split("\n")
+    .find((line) => line.trim() && !line.startsWith("#"))
+    ?.slice(0, 50) || "";
 
   return (
     <div
-      onClick={() => setActiveNote(note.id)}
+      onClick={() => setCurrentNote(note.id)}
       className={`p-3 cursor-pointer border-b border-[var(--border)] transition-colors group ${
         isActive 
-          ? 'bg-[var(--bg-tertiary)]' 
-          : 'hover:bg-[var(--bg-tertiary)]/50'
+          ? "bg-[var(--bg-tertiary)]" 
+          : "hover:bg-[var(--bg-tertiary)]/50"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -61,14 +62,14 @@ function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
         </button>
       </div>
     </div>
-  )
+  );
 }
 
 export function Sidebar() {
-  const notes = useNotesStore((s) => s.notes)
-  const activeNoteId = useNotesStore((s) => s.activeNoteId)
-  const createNote = useNotesStore((s) => s.createNote)
-  const logout = useAuthStore((s) => s.logout)
+  const notes = useVaultStore((state) => state.notes);
+  const currentNoteId = useVaultStore((state) => state.currentNoteId);
+  const createNote = useVaultStore((state) => state.createNote);
+  const logout = useAuthStore((state) => state.logout);
 
   return (
     <div className="w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex flex-col h-full">
@@ -90,7 +91,7 @@ export function Sidebar() {
           </button>
         </div>
         <button
-          onClick={createNote}
+          onClick={() => createNote()}
           className="w-full py-2 px-3 bg-[var(--accent)] hover:bg-[#4393e6] text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,7 +112,7 @@ export function Sidebar() {
             <NoteItem
               key={note.id}
               note={note}
-              isActive={note.id === activeNoteId}
+              isActive={note.id === currentNoteId}
             />
           ))
         )}
@@ -119,8 +120,8 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="p-3 border-t border-[var(--border)] text-xs text-[var(--text-secondary)] text-center">
-        {notes.length} note{notes.length !== 1 ? 's' : ''} • E2EE enabled
+        {notes.length} note{notes.length !== 1 ? "s" : ""} • E2EE enabled
       </div>
     </div>
-  )
+  );
 }
