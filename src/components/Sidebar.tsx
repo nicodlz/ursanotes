@@ -1,6 +1,37 @@
+import { useState } from "react";
+import { ChevronDown, ChevronRight, Folder, Tag as TagIcon, FileText } from "lucide-react";
 import { useVaultStore } from "../stores/index.js";
 import { useAuthStore } from "../stores/index.js";
-import type { Note } from "../schemas/index.js";
+import { FolderTree } from "./FolderTree.js";
+import { TagList } from "./TagList.js";
+import { NewFolderDialog } from "./NewFolderDialog.js";
+import { NewTagDialog } from "./NewTagDialog.js";
+import type { Note, Folder as FolderType, Tag } from "../schemas/index.js";
+
+interface CollapsibleSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+function CollapsibleSection({ title, icon, children, defaultOpen = true }: CollapsibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-b border-[var(--border)]">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 w-full px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+      >
+        {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        {icon}
+        {title}
+      </button>
+      {isOpen && <div className="px-2 pb-2">{children}</div>}
+    </div>
+  );
+}
 
 function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
   const setCurrentNote = useVaultStore((state) => state.setCurrentNote);
@@ -67,9 +98,71 @@ function NoteItem({ note, isActive }: { note: Note; isActive: boolean }) {
 
 export function Sidebar() {
   const notes = useVaultStore((state) => state.notes);
+  const folders = useVaultStore((state) => state.folders);
+  const tags = useVaultStore((state) => state.tags);
   const currentNoteId = useVaultStore((state) => state.currentNoteId);
+  const currentFolderId = useVaultStore((state) => state.currentFolderId);
+  const currentTagFilter = useVaultStore((state) => state.currentTagFilter);
   const createNote = useVaultStore((state) => state.createNote);
   const logout = useAuthStore((state) => state.logout);
+
+  // Dialog states
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderParentId, setNewFolderParentId] = useState<string | null>(null);
+  const [editFolder, setEditFolder] = useState<FolderType | null>(null);
+  const [newTagOpen, setNewTagOpen] = useState(false);
+  const [editTag, setEditTag] = useState<Tag | null>(null);
+
+  // Filter notes by folder and tag
+  const filteredNotes = notes.filter((note) => {
+    // Filter by folder
+    if (currentFolderId !== null && note.folderId !== currentFolderId) {
+      return false;
+    }
+    // Filter by tag
+    if (currentTagFilter !== null && !note.tags.includes(currentTagFilter)) {
+      return false;
+    }
+    return true;
+  });
+
+  const handleNewFolder = (parentId: string | null = null) => {
+    setNewFolderParentId(parentId);
+    setEditFolder(null);
+    setNewFolderOpen(true);
+  };
+
+  const handleEditFolder = (folder: FolderType) => {
+    setEditFolder(folder);
+    setNewFolderParentId(folder.parentId);
+    setNewFolderOpen(true);
+  };
+
+  const handleNewTag = () => {
+    setEditTag(null);
+    setNewTagOpen(true);
+  };
+
+  const handleEditTag = (tag: Tag) => {
+    setEditTag(tag);
+    setNewTagOpen(true);
+  };
+
+  // Get current filter description
+  const getFilterDescription = () => {
+    const parts: string[] = [];
+    if (currentFolderId) {
+      const folder = folders.find((f) => f.id === currentFolderId);
+      if (folder) parts.push(folder.name);
+    }
+    if (currentTagFilter) {
+      const tag = tags.find((t) => t.id === currentTagFilter);
+      if (tag) parts.push(`#${tag.name}`);
+    }
+    return parts.length > 0 ? parts.join(" + ") : null;
+  };
+
+  const filterDesc = getFilterDescription();
 
   return (
     <div className="w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex flex-col h-full">
@@ -91,7 +184,7 @@ export function Sidebar() {
           </button>
         </div>
         <button
-          onClick={() => createNote()}
+          onClick={() => createNote(currentFolderId)}
           className="w-full py-2 px-3 bg-[var(--accent)] hover:bg-[#4393e6] text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,27 +194,57 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Notes List */}
-      <div className="flex-1 overflow-y-auto">
-        {notes.length === 0 ? (
-          <div className="p-4 text-center text-[var(--text-secondary)] text-sm">
-            No notes yet. Create one!
+      {/* Folders Section */}
+      <CollapsibleSection title="Folders" icon={<Folder className="w-4 h-4" />}>
+        <FolderTree onNewFolder={handleNewFolder} onEditFolder={handleEditFolder} />
+      </CollapsibleSection>
+
+      {/* Tags Section */}
+      <CollapsibleSection title="Tags" icon={<TagIcon className="w-4 h-4" />}>
+        <TagList onNewTag={handleNewTag} onEditTag={handleEditTag} />
+      </CollapsibleSection>
+
+      {/* Notes Section */}
+      <CollapsibleSection title="Notes" icon={<FileText className="w-4 h-4" />} defaultOpen={true}>
+        {filterDesc && (
+          <div className="px-2 py-1 mb-1 text-xs text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded">
+            Filtered: {filterDesc}
           </div>
-        ) : (
-          notes.map((note) => (
-            <NoteItem
-              key={note.id}
-              note={note}
-              isActive={note.id === currentNoteId}
-            />
-          ))
         )}
-      </div>
+        <div className="max-h-[300px] overflow-y-auto">
+          {filteredNotes.length === 0 ? (
+            <div className="p-2 text-center text-[var(--text-secondary)] text-sm">
+              No notes{filterDesc ? " matching filter" : ""}
+            </div>
+          ) : (
+            filteredNotes.map((note) => (
+              <NoteItem
+                key={note.id}
+                note={note}
+                isActive={note.id === currentNoteId}
+              />
+            ))
+          )}
+        </div>
+      </CollapsibleSection>
 
       {/* Footer */}
-      <div className="p-3 border-t border-[var(--border)] text-xs text-[var(--text-secondary)] text-center">
+      <div className="mt-auto p-3 border-t border-[var(--border)] text-xs text-[var(--text-secondary)] text-center">
         {notes.length} note{notes.length !== 1 ? "s" : ""} • E2EE enabled
       </div>
+
+      {/* Dialogs */}
+      <NewFolderDialog
+        open={newFolderOpen}
+        onOpenChange={setNewFolderOpen}
+        parentId={newFolderParentId}
+        editFolder={editFolder}
+      />
+      <NewTagDialog
+        open={newTagOpen}
+        onOpenChange={setNewTagOpen}
+        editTag={editTag}
+      />
     </div>
   );
 }
