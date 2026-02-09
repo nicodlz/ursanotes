@@ -6,6 +6,7 @@ import { FolderTree } from "./FolderTree.js";
 import { TagList } from "./TagList.js";
 import { NewFolderDialog } from "./NewFolderDialog.js";
 import { NewTagDialog } from "./NewTagDialog.js";
+import { SyncStatus } from "./SyncStatus.js";
 import type { Note, Folder as FolderType, Tag } from "../schemas/index.js";
 
 interface CollapsibleSectionProps {
@@ -229,8 +230,11 @@ export function Sidebar() {
       </CollapsibleSection>
 
       {/* Footer */}
-      <div className="mt-auto p-3 border-t border-[var(--border)] text-xs text-[var(--text-secondary)] text-center">
-        {notes.length} note{notes.length !== 1 ? "s" : ""} • E2EE enabled
+      <div className="mt-auto p-3 border-t border-[var(--border)] flex items-center justify-between">
+        <span className="text-xs text-[var(--text-secondary)]">
+          {notes.length} note{notes.length !== 1 ? "s" : ""}
+        </span>
+        <SyncStatus state="local" />
       </div>
 
       {/* Dialogs */}

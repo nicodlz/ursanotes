@@ -2,6 +2,25 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Note, Folder, Tag, Settings } from "../schemas/index.js";
 
+// TODO: Replace localStorage persist with vault() middleware from @zod-vault/zustand
+// This would enable true E2EE sync across devices:
+//
+// import { vault } from "@zod-vault/zustand";
+// import { getRecoveryKey } from "./auth.js";
+//
+// export const useVaultStore = create<VaultState>()(
+//   vault(
+//     (set, get) => ({ ... }),
+//     {
+//       name: "vaultmd",
+//       getKey: () => getRecoveryKey(),
+//       serverUrl: "https://your-zod-vault-server.com",
+//     }
+//   )
+// );
+//
+// The vault middleware encrypts all data before storage/sync using the recovery key.
+
 interface VaultState {
   // Data
   notes: Note[];
