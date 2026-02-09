@@ -86,19 +86,21 @@ export function App() {
   const [vaultReady, setVaultReady] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
 
   const initializeVault = useCallback(async (providedCredential?: ZKCredential) => {
     const credential = providedCredential ?? stateCredential ?? getCredential();
     
-    // If no credential, we can't initialize (shouldn't happen in normal flow)
+    // If no credential, we need to re-authenticate to get the encryption key
     if (!credential) {
-      console.error("No credential available for vault initialization");
-      setVaultError("No encryption key available. Please sign in again.");
+      console.log("No credential available, need re-authentication");
+      setNeedsReauth(true);
       return;
     }
 
     setIsInitializing(true);
     setVaultError(null);
+    setNeedsReauth(false);
 
     try {
       // Use the cipherJwk from the credential for encryption
@@ -124,9 +126,17 @@ export function App() {
 
   const handleAuthenticated = useCallback((credential: ZKCredential) => {
     setCredential(credential);
+    setNeedsReauth(false);
     // Immediately initialize vault with the credential
     void initializeVault(credential);
   }, [initializeVault]);
+
+  // If authenticated but no credential, we need to re-auth to get encryption key
+  useEffect(() => {
+    if (isAuthenticated && !stateCredential && !getCredential() && !vaultReady && !isInitializing && !vaultError) {
+      setNeedsReauth(true);
+    }
+  }, [isAuthenticated, stateCredential, vaultReady, isInitializing, vaultError]);
 
   // If we have state credential but no vault yet, initialize
   useEffect(() => {
@@ -141,6 +151,7 @@ export function App() {
       setVaultReady(false);
       setVaultError(null);
       setCredential(null);
+      setNeedsReauth(false);
       clearVaultStore();
     }
   }, [isAuthenticated]);
@@ -152,6 +163,11 @@ export function App() {
 
   // Not authenticated
   if (!isAuthenticated) {
+    return <Auth onAuthenticated={handleAuthenticated} />;
+  }
+
+  // Need to re-authenticate to get encryption key (e.g., after page refresh)
+  if (needsReauth) {
     return <Auth onAuthenticated={handleAuthenticated} />;
   }
 
