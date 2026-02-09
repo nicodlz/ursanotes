@@ -36,8 +36,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       '@zod-vault/zustand':
-        specifier: ^0.2.3
-        version: 0.2.3(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+        specifier: ^0.2.4
+        version: 0.2.4(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1872,8 +1872,8 @@ packages:
   '@zod-vault/crypto@0.2.0':
     resolution: {integrity: sha512-cw65wN0+QTAkVhU6chsCAk/C9hZNBLk6o2rQjiNvxC5rT9d+7xWRntpfJegABHGkM6qi5RDn3iwAFPgd5PgnpA==}
 
-  '@zod-vault/zustand@0.2.3':
-    resolution: {integrity: sha512-O3RGc+2nxwVZizfnVKx+iGVXhX2Q/FnevqvDi6wKzQ3G0nfOoA2bs9vGVgZ9jhTp+radaqv+1WHXQz0xupjTNg==}
+  '@zod-vault/zustand@0.2.4':
+    resolution: {integrity: sha512-ygS4m+2cy6bDm0ZoUU8oUA0CinAUvD2FTnwebHI/yd/HVTRyvzkFebkEx99ByH4+MORRIJP5AYYDby3DsUcC+A==}
     peerDependencies:
       zustand: '>=4.0.0'
 
@@ -5775,7 +5775,7 @@ snapshots:
       '@z-base/cryptosuite': 1.0.1
       hash-wasm: 4.12.0
 
-  '@zod-vault/zustand@0.2.3(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
+  '@zod-vault/zustand@0.2.4(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
     dependencies:
       '@zod-vault/crypto': 0.2.0
       zustand: 5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
