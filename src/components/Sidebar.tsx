@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Folder, Tag as TagIcon, FileText, Menu } from "lucide-react";
 import { useSignOut } from "@zod-vault/client";
-import { useVaultStore } from "../stores/index.js";
+import { useVaultStore, useSyncStatus } from "../stores/index.js";
 import { vaultClient } from "../lib/vault-client.js";
 import { FolderTree } from "./FolderTree.js";
 import { TagList } from "./TagList.js";
@@ -124,6 +124,7 @@ export function SidebarContent({ onNoteSelect }: SidebarContentProps) {
   const currentTagFilter = useVaultStore((state) => state.currentTagFilter);
   const createNote = useVaultStore((state) => state.createNote);
   const signOut = useSignOut(vaultClient);
+  const syncStatus = useSyncStatus();
 
   // Dialog states
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -261,7 +262,7 @@ export function SidebarContent({ onNoteSelect }: SidebarContentProps) {
         <span className="text-xs text-[var(--text-secondary)]">
           {notes.length} note{notes.length !== 1 ? "s" : ""}
         </span>
-        <SyncStatus state="local" />
+        <SyncStatus state={syncStatus} />
       </div>
 
       {/* Dialogs */}

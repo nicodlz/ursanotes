@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { create, type StateCreator } from "zustand";
 import { vault, type VaultOptionsJwk } from "@zod-vault/zustand";
 import type { CipherJWK } from "@zod-vault/crypto";
@@ -379,6 +380,55 @@ export function clearVaultStore(): void {
 export function useVaultStore<T>(selector: (state: VaultState) => T): T {
   const store = getVaultStore();
   return store(selector);
+}
+
+/** Sync status type */
+export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "offline" | "local";
+
+/**
+ * Get sync status from the vault store
+ * Returns the current sync status or "idle" if not initialized
+ */
+export function getSyncStatus(): SyncStatus {
+  if (!vaultStore) return "idle";
+  return vaultStore.vault.getSyncStatus() as SyncStatus;
+}
+
+/**
+ * Manually trigger a sync with the server
+ */
+export async function triggerSync(): Promise<void> {
+  if (!vaultStore) return;
+  await vaultStore.vault.sync();
+}
+
+/**
+ * Hook to use sync status with auto-refresh
+ * Re-renders when sync status changes
+ */
+export function useSyncStatus(): SyncStatus {
+  const [status, setStatus] = useState<SyncStatus>("local");
+  
+  useEffect(() => {
+    if (!vaultStore) {
+      setStatus("local");
+      return;
+    }
+
+    // Initial status
+    setStatus(vaultStore.vault.getSyncStatus() as SyncStatus);
+
+    // Poll for status changes (vault middleware doesn't have a subscribe for sync status)
+    const interval = setInterval(() => {
+      if (vaultStore) {
+        setStatus(vaultStore.vault.getSyncStatus() as SyncStatus);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return status;
 }
 
 // Re-export types

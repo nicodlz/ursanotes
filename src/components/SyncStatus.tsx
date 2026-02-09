@@ -1,7 +1,7 @@
 import { HardDrive, Cloud, CloudOff, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip.js";
 
-type SyncState = "local" | "syncing" | "synced" | "offline" | "error";
+type SyncState = "local" | "idle" | "syncing" | "synced" | "offline" | "error";
 
 interface SyncStatusProps {
   state?: SyncState;
@@ -38,6 +38,7 @@ export function SyncStatus({ state = "local" }: SyncStatusProps) {
           label: "Sync Error",
           description: "Failed to sync, will retry",
         };
+      case "idle":
       case "local":
       default:
         return {
