@@ -1,12 +1,13 @@
 import { useEffect, useRef, useCallback } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
+import type { KeyBinding } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
-import { useVaultStore } from "../stores/index.js";
+import { useVaultStore } from "@/stores/vault.js";
 
 // Custom dark theme highlighting
 const darkHighlighting = HighlightStyle.define([
@@ -29,6 +30,10 @@ const darkTheme = EditorView.theme({
   "&": {
     backgroundColor: "var(--bg-primary)",
     color: "var(--text-primary)",
+    height: "100%",
+  },
+  ".cm-scroller": {
+    overflow: "auto",
   },
   ".cm-content": {
     caretColor: "var(--accent)",
@@ -60,33 +65,119 @@ const darkTheme = EditorView.theme({
   },
 });
 
-interface EditorProps {
-  content: string;
-  onChange: (content: string) => void;
+// Markdown keyboard shortcuts
+function wrapSelection(view: EditorView, wrapper: string): boolean {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const selectedText = state.doc.sliceString(from, to);
+  
+  const changes = {
+    from,
+    to,
+    insert: `${wrapper}${selectedText}${wrapper}`,
+  };
+  
+  view.dispatch({
+    changes,
+    selection: {
+      anchor: from + wrapper.length,
+      head: to + wrapper.length,
+    },
+  });
+  
+  return true;
 }
 
-export function Editor({ content, onChange }: EditorProps) {
+function insertLink(view: EditorView): boolean {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const selectedText = state.doc.sliceString(from, to);
+  
+  const linkText = selectedText || "link text";
+  const insert = `[${linkText}](url)`;
+  
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: {
+      anchor: from + linkText.length + 3,
+      head: from + linkText.length + 6,
+    },
+  });
+  
+  return true;
+}
+
+function insertCodeBlock(view: EditorView): boolean {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const selectedText = state.doc.sliceString(from, to);
+  
+  const insert = `\`\`\`\n${selectedText}\n\`\`\``;
+  
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: {
+      anchor: from + 4,
+      head: from + 4 + selectedText.length,
+    },
+  });
+  
+  return true;
+}
+
+const markdownKeymap: KeyBinding[] = [
+  { key: "Mod-b", run: (view) => wrapSelection(view, "**") },
+  { key: "Mod-i", run: (view) => wrapSelection(view, "*") },
+  { key: "Mod-k", run: insertLink },
+  { key: "Mod-Shift-k", run: insertCodeBlock },
+  { key: "Mod-`", run: (view) => wrapSelection(view, "`") },
+];
+
+interface EditorProps {
+  noteId: string;
+}
+
+export function Editor({ noteId }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isExternalUpdate = useRef(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const note = useVaultStore((state) => state.notes.find((n) => n.id === noteId));
+  const updateNote = useVaultStore((state) => state.updateNote);
 
   const handleChange = useCallback((update: { docChanged: boolean; state: EditorState }) => {
     if (update.docChanged && !isExternalUpdate.current) {
-      onChange(update.state.doc.toString());
+      const content = update.state.doc.toString();
+      
+      // Debounce save
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      
+      debounceTimer.current = setTimeout(() => {
+        // Extract title from first heading or first line
+        const lines = content.split("\n");
+        const titleLine = lines.find((line) => line.trim());
+        let title = titleLine?.replace(/^#+\s*/, "").slice(0, 50) || "Untitled";
+        if (title.length === 50) title += "...";
+        
+        updateNote(noteId, { content, title });
+      }, 500);
     }
-  }, [onChange]);
+  }, [noteId, updateNote]);
 
   useEffect(() => {
-    if (!editorRef.current) return;
+    if (!editorRef.current || !note) return;
 
     const state = EditorState.create({
-      doc: content,
+      doc: note.content,
       extensions: [
         lineNumbers(),
         highlightActiveLine(),
         highlightActiveLineGutter(),
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap]),
         markdown({ base: markdownLanguage, codeLanguages: languages }),
         syntaxHighlighting(darkHighlighting),
         darkTheme,
@@ -103,25 +194,36 @@ export function Editor({ content, onChange }: EditorProps) {
     viewRef.current = view;
 
     return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
       view.destroy();
       viewRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [noteId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update content when it changes externally (e.g., switching notes)
+  // Update content when note changes externally
   useEffect(() => {
-    if (viewRef.current && viewRef.current.state.doc.toString() !== content) {
+    if (viewRef.current && note && viewRef.current.state.doc.toString() !== note.content) {
       isExternalUpdate.current = true;
       viewRef.current.dispatch({
         changes: {
           from: 0,
           to: viewRef.current.state.doc.length,
-          insert: content,
+          insert: note.content,
         },
       });
       isExternalUpdate.current = false;
     }
-  }, [content]);
+  }, [note?.content]);
+
+  if (!note) {
+    return (
+      <div className="h-full flex items-center justify-center text-muted-foreground">
+        <p>Note not found</p>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -129,37 +231,4 @@ export function Editor({ content, onChange }: EditorProps) {
       className="h-full overflow-auto"
     />
   );
-}
-
-export function EditorContainer() {
-  const notes = useVaultStore((state) => state.notes);
-  const currentNoteId = useVaultStore((state) => state.currentNoteId);
-  const updateNote = useVaultStore((state) => state.updateNote);
-
-  const activeNote = notes.find((note) => note.id === currentNoteId);
-
-  const handleChange = useCallback((content: string) => {
-    if (currentNoteId) {
-      // Extract title from first heading or first line
-      const lines = content.split("\n");
-      const titleLine = lines.find((line) => line.trim());
-      let title = titleLine?.replace(/^#+\s*/, "").slice(0, 50) || "Untitled";
-      if (title.length === 50) title += "...";
-      
-      updateNote(currentNoteId, { content, title });
-    }
-  }, [currentNoteId, updateNote]);
-
-  if (!activeNote) {
-    return (
-      <div className="h-full flex items-center justify-center text-[var(--text-secondary)]">
-        <div className="text-center">
-          <div className="text-4xl mb-4">📝</div>
-          <p>Select a note or create a new one</p>
-        </div>
-      </div>
-    );
-  }
-
-  return <Editor key={currentNoteId} content={activeNote.content} onChange={handleChange} />;
 }
