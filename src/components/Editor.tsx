@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { getVaultStore } from "@/stores/vault.js";
+import { useVaultStore } from "@/stores/vault.js";
 import { useEditor } from "@/hooks/useEditor.js";
 import { MarkdownToolbar } from "./MarkdownToolbar.js";
 import type { ToolbarAction } from "./MarkdownToolbar.js";
@@ -26,9 +26,8 @@ interface EditorProps {
  * Configuration extracted to lib/editor modules.
  */
 export function Editor({ noteId }: EditorProps) {
-  const store = getVaultStore();
-  const note = store((state) => state.notes.find((n) => n.id === noteId));
-  const updateNote = store((state) => state.updateNote);
+  const note = useVaultStore((state) => state.notes.find((n) => n.id === noteId));
+  const updateNote = useVaultStore((state) => state.updateNote);
 
   const handleChange = useCallback((content: string, title: string) => {
     updateNote(noteId, { content, title });

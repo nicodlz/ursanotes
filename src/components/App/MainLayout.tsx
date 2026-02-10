@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getVaultStore } from "@/stores/vault.js";
+import { useVaultStore } from "@/stores/vault.js";
 import { Sidebar, MobileSidebar } from "../Sidebar.js";
 import { SplitView } from "../SplitView.js";
 import { EmptyState } from "./EmptyState.js";
@@ -7,9 +7,8 @@ import { EmptyState } from "./EmptyState.js";
 export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  // Use the vault store directly for reactive updates
-  const store = getVaultStore();
-  const currentNoteId = store((state) => state.currentNoteId);
+  // Use the vault store hook for reactive updates
+  const currentNoteId = useVaultStore((state) => state.currentNoteId);
 
   return (
     <div className="h-screen flex overflow-hidden">

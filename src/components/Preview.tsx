@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { getVaultStore } from "@/stores/vault.js";
+import { useVaultStore } from "@/stores/vault.js";
 import { markdownComponents } from "@/lib/markdown-components.js";
 
 interface PreviewProps {
@@ -17,10 +17,9 @@ interface PreviewProps {
  */
 export function Preview({ noteId, onScroll }: PreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const store = getVaultStore();
   
   // Select only the content string to minimize re-renders
-  const noteContent = store((state) => {
+  const noteContent = useVaultStore((state) => {
     const note = state.notes.find((n) => n.id === noteId);
     return note?.content ?? null;
   });
