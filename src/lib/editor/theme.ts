@@ -48,10 +48,10 @@ export const darkTheme = EditorView.theme({
     borderLeftWidth: "2px",
   },
   ".cm-selectionBackground": {
-    backgroundColor: "hsl(var(--accent)) !important",
+    backgroundColor: "rgba(56, 139, 253, 0.3) !important",
   },
   "&.cm-focused .cm-selectionBackground": {
-    backgroundColor: "hsl(var(--accent)) !important",
+    backgroundColor: "rgba(56, 139, 253, 0.4) !important",
   },
   ".cm-activeLine": {
     backgroundColor: "hsl(var(--accent) / 0.3)",
