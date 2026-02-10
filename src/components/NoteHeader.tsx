@@ -4,7 +4,7 @@ import { useVaultStore } from "../stores/index.js";
 import { Button } from "@/components/ui/button";
 import { FolderPicker } from "./FolderPicker.js";
 import { TagPicker } from "./TagPicker.js";
-import { exportToPdf } from "@/lib/export-pdf.js";
+import { exportToPdf } from "@/lib/export-pdf";
 
 interface NoteHeaderProps {
   noteId: string;
