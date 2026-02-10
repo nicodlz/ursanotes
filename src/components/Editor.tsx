@@ -1,90 +1,135 @@
 import { useEffect, useRef, useCallback } from "react";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor } from "@codemirror/view";
 import type { KeyBinding } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { getVaultStore } from "@/stores/vault.js";
+import { MarkdownToolbar } from "./MarkdownToolbar.js";
+import type { ToolbarAction } from "./MarkdownToolbar.js";
 
 // Custom dark theme highlighting
 const darkHighlighting = HighlightStyle.define([
-  { tag: tags.heading1, color: "#e6edf3", fontWeight: "bold", fontSize: "1.5em" },
-  { tag: tags.heading2, color: "#e6edf3", fontWeight: "bold", fontSize: "1.3em" },
-  { tag: tags.heading3, color: "#e6edf3", fontWeight: "bold", fontSize: "1.1em" },
+  { tag: tags.heading1, color: "#e6edf3", fontWeight: "bold", fontSize: "1.5em", lineHeight: "1.4" },
+  { tag: tags.heading2, color: "#e6edf3", fontWeight: "bold", fontSize: "1.3em", lineHeight: "1.4" },
+  { tag: tags.heading3, color: "#e6edf3", fontWeight: "bold", fontSize: "1.15em", lineHeight: "1.4" },
   { tag: tags.heading, color: "#e6edf3", fontWeight: "bold" },
   { tag: tags.emphasis, fontStyle: "italic", color: "#a5d6ff" },
   { tag: tags.strong, fontWeight: "bold", color: "#e6edf3" },
   { tag: tags.link, color: "#58a6ff", textDecoration: "underline" },
   { tag: tags.url, color: "#58a6ff" },
-  { tag: tags.monospace, color: "#79c0ff", fontFamily: "monospace" },
-  { tag: tags.quote, color: "#8b949e", fontStyle: "italic" },
+  { tag: tags.monospace, color: "#79c0ff", fontFamily: "'JetBrains Mono', 'Fira Code', monospace", backgroundColor: "rgba(110, 118, 129, 0.2)", padding: "2px 4px", borderRadius: "3px" },
+  { tag: tags.quote, color: "#8b949e", fontStyle: "italic", borderLeft: "3px solid #30363d", paddingLeft: "8px" },
   { tag: tags.list, color: "#7ee787" },
-  { tag: tags.contentSeparator, color: "#30363d" },
+  { tag: tags.contentSeparator, color: "#30363d", fontWeight: "bold" },
   { tag: tags.processingInstruction, color: "#ff7b72" },
+  { tag: tags.strikethrough, textDecoration: "line-through", color: "#6e7681" },
 ]);
 
 const darkTheme = EditorView.theme({
   "&": {
-    backgroundColor: "var(--bg-primary)",
-    color: "var(--text-primary)",
+    backgroundColor: "hsl(var(--background))",
+    color: "hsl(var(--foreground))",
     height: "100%",
+    fontSize: "14px",
+    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   },
   ".cm-scroller": {
     overflow: "auto",
+    lineHeight: "1.7",
   },
   ".cm-content": {
-    caretColor: "var(--accent)",
+    caretColor: "hsl(var(--primary))",
     padding: "16px",
+    minHeight: "100%",
   },
   ".cm-cursor": {
-    borderLeftColor: "var(--accent)",
+    borderLeftColor: "hsl(var(--primary))",
+    borderLeftWidth: "2px",
   },
   ".cm-selectionBackground": {
-    backgroundColor: "#264f78 !important",
+    backgroundColor: "hsl(var(--accent)) !important",
   },
   "&.cm-focused .cm-selectionBackground": {
-    backgroundColor: "#264f78 !important",
+    backgroundColor: "hsl(var(--accent)) !important",
   },
   ".cm-activeLine": {
-    backgroundColor: "rgba(88, 166, 255, 0.05)",
+    backgroundColor: "hsl(var(--accent) / 0.3)",
   },
   ".cm-activeLineGutter": {
-    backgroundColor: "rgba(88, 166, 255, 0.1)",
+    backgroundColor: "hsl(var(--accent) / 0.4)",
   },
   ".cm-gutters": {
-    backgroundColor: "var(--bg-secondary)",
-    color: "var(--text-secondary)",
+    backgroundColor: "hsl(var(--muted))",
+    color: "hsl(var(--muted-foreground))",
     border: "none",
-    borderRight: "1px solid var(--border)",
+    borderRight: "1px solid hsl(var(--border))",
   },
   ".cm-lineNumbers .cm-gutterElement": {
+    padding: "0 12px",
+    minWidth: "40px",
+  },
+  ".cm-foldPlaceholder": {
+    backgroundColor: "hsl(var(--accent))",
+    border: "none",
+    color: "hsl(var(--accent-foreground))",
+    borderRadius: "3px",
     padding: "0 8px",
   },
-});
+  "&.cm-focused": {
+    outline: "none",
+  },
+}, { dark: true });
 
-// Markdown keyboard shortcuts
+// Markdown editing functions
 function wrapSelection(view: EditorView, wrapper: string): boolean {
   const { state } = view;
   const { from, to } = state.selection.main;
   const selectedText = state.doc.sliceString(from, to);
   
-  const changes = {
-    from,
-    to,
-    insert: `${wrapper}${selectedText}${wrapper}`,
-  };
-  
   view.dispatch({
-    changes,
+    changes: { from, to, insert: `${wrapper}${selectedText}${wrapper}` },
     selection: {
       anchor: from + wrapper.length,
       head: to + wrapper.length,
     },
   });
   
+  view.focus();
+  return true;
+}
+
+function insertAtLineStart(view: EditorView, prefix: string): boolean {
+  const { state } = view;
+  const { from } = state.selection.main;
+  const line = state.doc.lineAt(from);
+  const lineText = line.text;
+  
+  // Toggle if already has the prefix
+  if (lineText.startsWith(prefix)) {
+    view.dispatch({
+      changes: {
+        from: line.from,
+        to: line.from + prefix.length,
+        insert: "",
+      },
+    });
+  } else {
+    view.dispatch({
+      changes: {
+        from: line.from,
+        insert: prefix,
+      },
+      selection: {
+        anchor: from + prefix.length,
+      },
+    });
+  }
+  
+  view.focus();
   return true;
 }
 
@@ -104,6 +149,7 @@ function insertLink(view: EditorView): boolean {
     },
   });
   
+  view.focus();
   return true;
 }
 
@@ -122,15 +168,59 @@ function insertCodeBlock(view: EditorView): boolean {
     },
   });
   
+  view.focus();
   return true;
+}
+
+function insertHorizontalRule(view: EditorView): boolean {
+  const { state } = view;
+  const { from } = state.selection.main;
+  const line = state.doc.lineAt(from);
+  
+  view.dispatch({
+    changes: {
+      from: line.to,
+      insert: "\n\n---\n\n",
+    },
+    selection: {
+      anchor: line.to + 6,
+    },
+  });
+  
+  view.focus();
+  return true;
+}
+
+function insertQuote(view: EditorView): boolean {
+  return insertAtLineStart(view, "> ");
+}
+
+function insertBulletList(view: EditorView): boolean {
+  return insertAtLineStart(view, "- ");
+}
+
+function insertNumberedList(view: EditorView): boolean {
+  return insertAtLineStart(view, "1. ");
+}
+
+function insertTaskList(view: EditorView): boolean {
+  return insertAtLineStart(view, "- [ ] ");
 }
 
 const markdownKeymap: KeyBinding[] = [
   { key: "Mod-b", run: (view) => wrapSelection(view, "**") },
   { key: "Mod-i", run: (view) => wrapSelection(view, "*") },
+  { key: "Mod-`", run: (view) => wrapSelection(view, "`") },
   { key: "Mod-k", run: insertLink },
   { key: "Mod-Shift-k", run: insertCodeBlock },
-  { key: "Mod-`", run: (view) => wrapSelection(view, "`") },
+  { key: "Mod-Alt-1", run: (view) => insertAtLineStart(view, "# ") },
+  { key: "Mod-Alt-2", run: (view) => insertAtLineStart(view, "## ") },
+  { key: "Mod-Alt-3", run: (view) => insertAtLineStart(view, "### ") },
+  { key: "Mod-Shift-8", run: insertBulletList },
+  { key: "Mod-Shift-7", run: insertNumberedList },
+  { key: "Mod-Shift-9", run: insertTaskList },
+  { key: "Mod-Shift-.", run: insertQuote },
+  { key: "Mod-Shift--", run: insertHorizontalRule },
 ];
 
 interface EditorProps {
@@ -169,6 +259,23 @@ export function Editor({ noteId }: EditorProps) {
     }
   }, [noteId, updateNote]);
 
+  // Toolbar actions
+  const toolbarActions: ToolbarAction = {
+    bold: () => viewRef.current && wrapSelection(viewRef.current, "**"),
+    italic: () => viewRef.current && wrapSelection(viewRef.current, "*"),
+    code: () => viewRef.current && wrapSelection(viewRef.current, "`"),
+    link: () => viewRef.current && insertLink(viewRef.current),
+    heading1: () => viewRef.current && insertAtLineStart(viewRef.current, "# "),
+    heading2: () => viewRef.current && insertAtLineStart(viewRef.current, "## "),
+    heading3: () => viewRef.current && insertAtLineStart(viewRef.current, "### "),
+    bulletList: () => viewRef.current && insertBulletList(viewRef.current),
+    numberedList: () => viewRef.current && insertNumberedList(viewRef.current),
+    taskList: () => viewRef.current && insertTaskList(viewRef.current),
+    quote: () => viewRef.current && insertQuote(viewRef.current),
+    codeBlock: () => viewRef.current && insertCodeBlock(viewRef.current),
+    horizontalRule: () => viewRef.current && insertHorizontalRule(viewRef.current),
+  };
+
   useEffect(() => {
     if (!editorRef.current || !note) return;
 
@@ -178,8 +285,15 @@ export function Editor({ noteId }: EditorProps) {
         lineNumbers(),
         highlightActiveLine(),
         highlightActiveLineGutter(),
+        drawSelection(),
+        dropCursor(),
         history(),
-        keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap]),
+        keymap.of([
+          indentWithTab,
+          ...markdownKeymap,
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
         markdown({ base: markdownLanguage, codeLanguages: languages }),
         syntaxHighlighting(darkHighlighting),
         darkTheme,
@@ -228,9 +342,12 @@ export function Editor({ noteId }: EditorProps) {
   }
 
   return (
-    <div 
-      ref={editorRef} 
-      className="h-full overflow-auto"
-    />
+    <div className="h-full flex flex-col overflow-hidden">
+      <MarkdownToolbar actions={toolbarActions} />
+      <div 
+        ref={editorRef} 
+        className="flex-1 overflow-auto"
+      />
+    </div>
   );
 }

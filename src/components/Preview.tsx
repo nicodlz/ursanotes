@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -6,6 +7,7 @@ import { getVaultStore } from "@/stores/vault.js";
 
 interface PreviewProps {
   noteId: string;
+  onScroll?: (scrollTop: number, scrollHeight: number, clientHeight: number) => void;
 }
 
 // Custom components for ReactMarkdown
@@ -124,13 +126,31 @@ const components: Components = {
   ),
 };
 
-export function Preview({ noteId }: PreviewProps) {
+export function Preview({ noteId, onScroll }: PreviewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const store = getVaultStore();
+  
   // Select only the content string to minimize re-renders
   const noteContent = store((state) => {
     const note = state.notes.find((n) => n.id === noteId);
     return note?.content ?? null;
   });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !onScroll) return;
+
+    const handleScroll = () => {
+      onScroll(
+        container.scrollTop,
+        container.scrollHeight,
+        container.clientHeight
+      );
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [onScroll]);
 
   if (noteContent === null) {
     return (
@@ -141,7 +161,7 @@ export function Preview({ noteId }: PreviewProps) {
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
+    <div ref={containerRef} className="h-full overflow-auto p-6">
       <div className="prose prose-invert max-w-none">
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]}
