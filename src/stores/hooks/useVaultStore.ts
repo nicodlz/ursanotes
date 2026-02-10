@@ -1,39 +1,31 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getVaultStore } from "../vault-initializer.js";
 import type { VaultState } from "../types.js";
 
 /**
  * Hook to use the vault store
- * For use in React components after vault is initialized
- * 
- * Uses useState + useEffect for manual subscription (more reliable than useSyncExternalStore)
+ * Simple implementation with useState + useEffect
  */
 export function useVaultStore<T>(selector: (state: VaultState) => T): T {
   const store = getVaultStore();
   
-  // Keep selector in ref to avoid stale closures
-  const selectorRef = useRef(selector);
-  selectorRef.current = selector;
+  // Initialize with current value
+  const [value, setValue] = useState<T>(() => selector(store.getState()));
   
-  // State to trigger re-renders
-  const [selectedState, setSelectedState] = useState(() => 
-    selectorRef.current(store.getState())
-  );
+  // Memoize selector to avoid issues
+  const memoizedSelector = useCallback(selector, []);
   
-  // Subscribe to store changes
   useEffect(() => {
-    // Get initial state
-    const initialValue = selectorRef.current(store.getState());
-    setSelectedState(initialValue);
+    // Update immediately in case state changed between render and effect
+    setValue(memoizedSelector(store.getState()));
     
-    // Subscribe to changes
+    // Subscribe to future changes
     const unsubscribe = store.subscribe(() => {
-      const newValue = selectorRef.current(store.getState());
-      setSelectedState(newValue);
+      setValue(memoizedSelector(store.getState()));
     });
     
     return unsubscribe;
-  }, [store]);
+  }, [store, memoizedSelector]);
   
-  return selectedState;
+  return value;
 }

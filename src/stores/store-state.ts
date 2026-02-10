@@ -201,11 +201,7 @@ export const createStoreState: StateCreator<VaultState, [], []> = (set, get) => 
   },
 
   // Navigation
-  setCurrentNote: (id) => {
-    console.log("[Store] setCurrentNote called with:", id);
-    set({ currentNoteId: id });
-    console.log("[Store] State after set:", get().currentNoteId);
-  },
+  setCurrentNote: (id) => set({ currentNoteId: id }),
   setCurrentFolder: (id) => set({ currentFolderId: id }),
   setCurrentTagFilter: (id) => set({ currentTagFilter: id }),
 });

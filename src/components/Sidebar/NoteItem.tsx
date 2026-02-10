@@ -16,9 +16,7 @@ export function NoteItem({ note, isActive, onSelect }: NoteItemProps) {
   const deleteNote = useVaultStore((state) => state.deleteNote);
 
   const handleClick = () => {
-    console.log("[NoteItem] Clicking note:", note.id, note.title);
     setCurrentNote(note.id);
-    console.log("[NoteItem] setCurrentNote called");
     onSelect?.();
   };
 
