@@ -1,32 +1,26 @@
-import { useState, useEffect, useRef } from "react";
-import { getVaultStore } from "../vault-initializer.js";
+import { useSyncExternalStore } from "react";
+import { getVaultStore, isVaultInitialized } from "../vault-initializer.js";
 import type { VaultState } from "../types.js";
 
 /**
- * Hook to use the vault store
- * Simple implementation with useState + useEffect
+ * Hook to use the vault store with proper React 18 subscription.
+ * 
+ * Uses useSyncExternalStore for correct concurrent rendering support.
+ * The selector is called on every render to get the current value,
+ * matching how Zustand's built-in useStore works.
  */
 export function useVaultStore<T>(selector: (state: VaultState) => T): T {
+  if (!isVaultInitialized()) {
+    throw new Error("useVaultStore called before vault initialization");
+  }
+  
   const store = getVaultStore();
   
-  // Keep selector in ref to always have latest version
-  const selectorRef = useRef(selector);
-  selectorRef.current = selector;
+  // useSyncExternalStore requires stable functions
+  // We use inline functions that close over the current selector
+  // This matches Zustand's internal implementation
+  const subscribe = (callback: () => void) => store.subscribe(callback);
+  const getSnapshot = () => selector(store.getState());
   
-  // Initialize with current value
-  const [value, setValue] = useState<T>(() => selectorRef.current(store.getState()));
-  
-  useEffect(() => {
-    // Update immediately in case state changed between render and effect
-    setValue(selectorRef.current(store.getState()));
-    
-    // Subscribe to future changes
-    const unsubscribe = store.subscribe(() => {
-      setValue(selectorRef.current(store.getState()));
-    });
-    
-    return unsubscribe;
-  }, [store]); // Only re-subscribe when store changes
-  
-  return value;
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

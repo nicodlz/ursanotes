@@ -200,12 +200,8 @@ export const createStoreState: StateCreator<VaultState, [], []> = (set, get) => 
     }));
   },
 
-  // Navigation - only set if id is valid (not undefined)
-  setCurrentNote: (id) => {
-    if (id !== undefined) {
-      set({ currentNoteId: id });
-    }
-  },
+  // Navigation
+  setCurrentNote: (id) => set({ currentNoteId: id }),
   setCurrentFolder: (id) => set({ currentFolderId: id }),
   setCurrentTagFilter: (id) => set({ currentTagFilter: id }),
 });

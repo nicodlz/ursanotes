@@ -29,8 +29,7 @@ interface UseVaultInitializerResult {
 }
 
 /**
- * Custom hook for managing vault initialization logic
- * Separates business logic from component presentation
+ * Hook for managing vault initialization
  */
 export function useVaultInitializer({
   isAuthenticated,
@@ -42,43 +41,29 @@ export function useVaultInitializer({
   const [needsReauth, setNeedsReauth] = useState(false);
 
   const initializeVault = useCallback(async (providedCredential?: ZKCredential) => {
-    console.log("[useVaultInitializer] initializeVault called");
     const credential = providedCredential ?? stateCredential ?? getCredential();
     
-    // If no credential, we need to re-authenticate to get the encryption key
     if (!credential) {
-      console.log("[useVaultInitializer] No credential, need reauth");
       setNeedsReauth(true);
       return;
     }
 
-    console.log("[useVaultInitializer] Starting vault init...");
     setIsInitializing(true);
     setVaultError(null);
     setNeedsReauth(false);
 
     try {
-      // Use the cipherJwk from the credential for encryption
-      console.log("[useVaultInitializer] Calling initializeVaultStore...");
       await initializeVaultStore(credential.cipherJwk);
-      console.log("[useVaultInitializer] initializeVaultStore completed!");
-      
-      // Store for future use in this session
       if (providedCredential) {
         setCredential(providedCredential);
       }
-      console.log("[useVaultInitializer] Setting vaultReady = true");
       setVaultReady(true);
     } catch (error) {
-      console.error("[useVaultInitializer] Vault initialization failed:", error);
-      
-      // Clear the vault store on failure
+      console.error("Vault initialization failed:", error);
       clearVaultStore();
-      
       const errorMessage = error instanceof Error ? error.message : String(error);
       setVaultError(`Failed to initialize vault: ${errorMessage}`);
     } finally {
-      console.log("[useVaultInitializer] Setting isInitializing = false");
       setIsInitializing(false);
     }
   }, [stateCredential]);
@@ -86,7 +71,6 @@ export function useVaultInitializer({
   const handleAuthenticated = useCallback((credential: ZKCredential) => {
     setCredential(credential);
     setNeedsReauth(false);
-    // Immediately initialize vault with the credential
     void initializeVault(credential);
   }, [initializeVault]);
 
@@ -94,21 +78,21 @@ export function useVaultInitializer({
     setVaultError(null);
   }, []);
 
-  // If authenticated but no credential, we need to re-auth to get encryption key
+  // If authenticated but no credential, need reauth
   useEffect(() => {
     if (isAuthenticated && !stateCredential && !getCredential() && !vaultReady && !isInitializing && !vaultError) {
       setNeedsReauth(true);
     }
   }, [isAuthenticated, stateCredential, vaultReady, isInitializing, vaultError]);
 
-  // If we have state credential but no vault yet, initialize
+  // Auto-initialize if we have credential
   useEffect(() => {
     if (isAuthenticated && stateCredential && !vaultReady && !isInitializing && !vaultError) {
       initializeVault(stateCredential);
     }
   }, [isAuthenticated, stateCredential, vaultReady, isInitializing, vaultError, initializeVault]);
 
-  // Reset vault ready state when logged out
+  // Clear on logout
   useEffect(() => {
     if (!isAuthenticated) {
       setVaultReady(false);
