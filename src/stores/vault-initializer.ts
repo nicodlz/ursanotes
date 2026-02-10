@@ -31,6 +31,7 @@ export interface VaultStore {
 
 // Store instance - created lazily after authentication
 let vaultStore: VaultStore | null = null;
+let initializationPromise: Promise<VaultStore> | null = null;
 
 /**
  * Initialize the vault store with E2EE using the CipherJWK from ZKCredentials
@@ -39,7 +40,19 @@ let vaultStore: VaultStore | null = null;
 export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultStore> {
   console.log("[VaultInit] Starting initialization...");
   
-  return new Promise((resolve, reject) => {
+  // If already initialized, return existing store
+  if (vaultStore) {
+    console.log("[VaultInit] Already initialized, returning existing store");
+    return vaultStore;
+  }
+  
+  // If initialization is in progress, return the existing promise
+  if (initializationPromise) {
+    console.log("[VaultInit] Initialization in progress, returning existing promise");
+    return initializationPromise;
+  }
+  
+  initializationPromise = new Promise((resolve, reject) => {
     let rehydrationComplete = false;
     let rehydrationError: Error | null = null;
 
@@ -116,15 +129,18 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
         if (rehydrationError) {
           console.log("[VaultInit] Hydration failed:", rehydrationError);
           vaultStore = null;
+          initializationPromise = null;
           reject(rehydrationError);
         } else {
           console.log("[VaultInit] Hydration complete, store ready!");
           vaultStore = store;
+          initializationPromise = null;
           resolve(store);
         }
       } else if (Date.now() - startTime > timeout) {
         console.log("[VaultInit] Timeout waiting for hydration");
         vaultStore = null;
+        initializationPromise = null;
         reject(new Error("Vault initialization timeout"));
       } else {
         setTimeout(checkHydration, 50);
@@ -134,6 +150,8 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
     // Start checking after a brief delay to allow hydration to begin
     setTimeout(checkHydration, 50);
   });
+  
+  return initializationPromise;
 }
 
 /**
