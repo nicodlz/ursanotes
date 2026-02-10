@@ -11,7 +11,7 @@ import {
 } from "@react-pdf/renderer";
 import { marked, type Token, type Tokens } from "marked";
 
-// Register fonts (using default)
+// Register fonts
 Font.register({
   family: "Roboto",
   fonts: [
@@ -45,6 +45,8 @@ const styles = StyleSheet.create({
   h2: { fontSize: 15, fontWeight: 700, marginTop: 14, marginBottom: 6 },
   h3: { fontSize: 13, fontWeight: 700, marginTop: 12, marginBottom: 5 },
   h4: { fontSize: 11, fontWeight: 700, marginTop: 10, marginBottom: 4 },
+  h5: { fontSize: 11, fontWeight: 700, marginTop: 8, marginBottom: 4 },
+  h6: { fontSize: 11, fontWeight: 700, marginTop: 8, marginBottom: 4 },
   paragraph: { marginBottom: 8 },
   bold: { fontWeight: 700 },
   italic: { fontStyle: "italic" },
@@ -72,10 +74,11 @@ const styles = StyleSheet.create({
   },
   listItem: {
     flexDirection: "row",
-    marginBottom: 3,
+    marginBottom: 4,
   },
   bullet: {
-    width: 20,
+    width: 15,
+    marginRight: 5,
   },
   listContent: {
     flex: 1,
@@ -132,9 +135,10 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
   switch (token.type) {
     case "heading": {
       const t = token as Tokens.Heading;
-      const styleKey = `h${Math.min(t.depth, 4)}` as keyof typeof styles;
+      const depth = Math.min(t.depth, 6);
+      const styleKey = `h${depth}` as keyof typeof styles;
       return (
-        <Text style={styles[styleKey]}>
+        <Text style={styles[styleKey] || styles.h4}>
           <InlineTokens tokens={t.tokens} />
         </Text>
       );
@@ -147,6 +151,19 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
           <InlineTokens tokens={t.tokens} />
         </Text>
       );
+    }
+
+    case "text": {
+      const t = token as Tokens.Text;
+      // Text tokens can have nested tokens
+      if (t.tokens && t.tokens.length > 0) {
+        return (
+          <Text>
+            <InlineTokens tokens={t.tokens} />
+          </Text>
+        );
+      }
+      return <Text>{t.text}</Text>;
     }
 
     case "code": {
@@ -172,11 +189,9 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
           {t.items.map((item, i) => (
             <View key={i} style={styles.listItem}>
               <Text style={styles.bullet}>{t.ordered ? `${i + 1}.` : "•"}</Text>
-              <View style={styles.listContent}>
-                {item.tokens.map((tok, j) => (
-                  <TokenRenderer key={j} token={tok} />
-                ))}
-              </View>
+              <Text style={styles.listContent}>
+                <ListItemContent tokens={item.tokens} />
+              </Text>
             </View>
           ))}
         </View>
@@ -214,10 +229,74 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
       return <View style={{ height: 8 }} />;
 
     default:
+      // Fallback for any unhandled token types
       if ("text" in token && typeof token.text === "string") {
         return <Text style={styles.paragraph}>{token.text}</Text>;
       }
+      if ("tokens" in token && Array.isArray(token.tokens)) {
+        return (
+          <View>
+            {token.tokens.map((t: Token, i: number) => (
+              <TokenRenderer key={i} token={t} />
+            ))}
+          </View>
+        );
+      }
       return null;
+  }
+}
+
+// Special handler for list item content - flattens everything into inline content
+function ListItemContent({ tokens }: { tokens: Token[] }): React.ReactElement {
+  return (
+    <>
+      {tokens.map((token, i) => (
+        <ListItemToken key={i} token={token} />
+      ))}
+    </>
+  );
+}
+
+function ListItemToken({ token }: { token: Token }): React.ReactElement {
+  switch (token.type) {
+    case "text": {
+      const t = token as Tokens.Text;
+      if (t.tokens && t.tokens.length > 0) {
+        return <InlineTokens tokens={t.tokens} />;
+      }
+      return <>{t.text}</>;
+    }
+    case "paragraph": {
+      const t = token as Tokens.Paragraph;
+      return <InlineTokens tokens={t.tokens} />;
+    }
+    case "strong":
+      return (
+        <Text style={styles.bold}>
+          <InlineTokens tokens={(token as Tokens.Strong).tokens} />
+        </Text>
+      );
+    case "em":
+      return (
+        <Text style={styles.italic}>
+          <InlineTokens tokens={(token as Tokens.Em).tokens} />
+        </Text>
+      );
+    case "link": {
+      const t = token as Tokens.Link;
+      return (
+        <Link src={t.href} style={styles.link}>
+          <InlineTokens tokens={t.tokens} />
+        </Link>
+      );
+    }
+    case "codespan":
+      return <Text style={styles.code}>{(token as Tokens.Codespan).text}</Text>;
+    default:
+      if ("text" in token && typeof token.text === "string") {
+        return <>{token.text}</>;
+      }
+      return <></>;
   }
 }
 
@@ -235,8 +314,14 @@ function InlineTokens({ tokens }: { tokens?: Token[] }): React.ReactElement {
 
 function InlineToken({ token }: { token: Token }): React.ReactElement {
   switch (token.type) {
-    case "text":
-      return <>{(token as Tokens.Text).text}</>;
+    case "text": {
+      const t = token as Tokens.Text;
+      // Handle nested tokens in text
+      if (t.tokens && t.tokens.length > 0) {
+        return <InlineTokens tokens={t.tokens} />;
+      }
+      return <>{t.text}</>;
+    }
 
     case "strong":
       return (
@@ -285,6 +370,7 @@ function InlineToken({ token }: { token: Token }): React.ReactElement {
 export async function exportToPdf({ title, content }: ExportOptions): Promise<void> {
   // Parse markdown
   const tokens = marked.lexer(content);
+  console.log("[PDF Export] Parsed tokens:", JSON.stringify(tokens, null, 2));
 
   // Generate PDF blob
   const blob = await pdf(<PdfDocument title={title} tokens={tokens} />).toBlob();
