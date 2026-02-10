@@ -1,4 +1,10 @@
-import html2pdf from "html2pdf.js";
+import pdfMake from "pdfmake/build/pdfmake";
+import pdfFonts from "pdfmake/build/vfs_fonts";
+import { marked, type Token, type Tokens } from "marked";
+import type { TDocumentDefinitions, Content, ContentText, ContentColumns, ContentTable, ContentCanvas, ContentStack } from "pdfmake/interfaces";
+
+// Initialize pdfmake fonts
+(pdfMake as unknown as { vfs: typeof pdfFonts.vfs }).vfs = pdfFonts.vfs;
 
 interface ExportOptions {
   title: string;
@@ -6,124 +12,270 @@ interface ExportOptions {
 }
 
 /**
- * Export markdown content as PDF
- * Renders markdown to HTML, then converts to PDF
+ * Export markdown content as PDF using pdfmake
+ * No html2canvas = no oklch color parsing issues
  */
 export async function exportToPdf({ title, content }: ExportOptions): Promise<void> {
-  // Create an iframe to completely isolate from page styles
-  const iframe = document.createElement("iframe");
-  iframe.style.position = "absolute";
-  iframe.style.left = "-9999px";
-  iframe.style.width = "800px";
-  iframe.style.height = "600px";
-  document.body.appendChild(iframe);
+  // Parse markdown to tokens
+  const tokens = marked.lexer(content);
   
-  try {
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) throw new Error("Failed to create iframe document");
+  // Convert tokens to pdfmake content
+  const pdfContent = tokensToPdfContent(tokens);
+  
+  const docDefinition: TDocumentDefinitions = {
+    content: [
+      { text: title, style: "title" } as ContentText,
+      { canvas: [{ type: "line", x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 0.5, lineColor: "#cccccc" }] } as ContentCanvas,
+      { text: "", margin: [0, 10, 0, 0] } as ContentText,
+      ...pdfContent,
+    ],
+    styles: {
+      title: {
+        fontSize: 24,
+        bold: true,
+        margin: [0, 0, 0, 10],
+      },
+      h1: {
+        fontSize: 20,
+        bold: true,
+        margin: [0, 15, 0, 8],
+      },
+      h2: {
+        fontSize: 16,
+        bold: true,
+        margin: [0, 12, 0, 6],
+      },
+      h3: {
+        fontSize: 14,
+        bold: true,
+        margin: [0, 10, 0, 5],
+      },
+      h4: {
+        fontSize: 12,
+        bold: true,
+        margin: [0, 8, 0, 4],
+      },
+      paragraph: {
+        fontSize: 11,
+        margin: [0, 0, 0, 8],
+        lineHeight: 1.4,
+      },
+      code: {
+        font: "Courier",
+        fontSize: 10,
+      },
+      codeBlock: {
+        font: "Courier",
+        fontSize: 9,
+        margin: [0, 5, 0, 10],
+      },
+      blockquote: {
+        fontSize: 11,
+        italics: true,
+        color: "#666666",
+        margin: [20, 5, 0, 10],
+      },
+      listItem: {
+        fontSize: 11,
+        margin: [0, 2, 0, 2],
+      },
+    },
+    defaultStyle: {
+      font: "Helvetica",
+      fontSize: 11,
+    },
+  };
+
+  const filename = sanitizeFilename(title) + ".pdf";
+  pdfMake.createPdf(docDefinition).download(filename);
+}
+
+function tokensToPdfContent(tokens: Token[]): Content[] {
+  const content: Content[] = [];
+  
+  for (const token of tokens) {
+    const converted = tokenToPdf(token);
+    if (converted) {
+      if (Array.isArray(converted)) {
+        content.push(...converted);
+      } else {
+        content.push(converted);
+      }
+    }
+  }
+  
+  return content;
+}
+
+function tokenToPdf(token: Token): Content | Content[] | null {
+  switch (token.type) {
+    case "heading": {
+      const t = token as Tokens.Heading;
+      const style = `h${Math.min(t.depth, 4)}`;
+      return { text: parseInlineTokens(t.tokens), style } as ContentText;
+    }
     
-    // Import and render markdown
-    const { marked } = await import("marked");
-    const html = await marked(content);
+    case "paragraph": {
+      const t = token as Tokens.Paragraph;
+      return { text: parseInlineTokens(t.tokens), style: "paragraph" } as ContentText;
+    }
     
-    // Write complete HTML document with isolated styles
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 12pt;
-            line-height: 1.6;
-            color: #1a1a1a;
-            background: #ffffff;
-            padding: 20px;
-          }
-          h1 { font-size: 24pt; margin: 0 0 16pt 0; border-bottom: 1px solid #dddddd; padding-bottom: 8pt; }
-          h2 { font-size: 18pt; margin: 16pt 0 12pt 0; }
-          h3 { font-size: 14pt; margin: 14pt 0 10pt 0; }
-          h4, h5, h6 { font-size: 12pt; margin: 12pt 0 8pt 0; }
-          p { margin: 0 0 10pt 0; }
-          ul, ol { margin: 0 0 10pt 0; padding-left: 20pt; }
-          li { margin: 4pt 0; }
-          code {
-            background: #f4f4f4;
-            padding: 2pt 4pt;
-            border-radius: 3pt;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 10pt;
-          }
-          pre {
-            background: #f4f4f4;
-            padding: 12pt;
-            border-radius: 4pt;
-            overflow-x: auto;
-            margin: 0 0 10pt 0;
-          }
-          pre code { background: transparent; padding: 0; }
-          blockquote {
-            border-left: 3pt solid #cccccc;
-            margin: 0 0 10pt 0;
-            padding-left: 12pt;
-            color: #666666;
-          }
-          table { border-collapse: collapse; margin: 0 0 10pt 0; width: 100%; }
-          th, td {
-            border: 1px solid #dddddd;
-            padding: 6pt 10pt;
-            text-align: left;
-          }
-          th { background: #f4f4f4; font-weight: 600; }
-          a { color: #0066cc; text-decoration: none; }
-          hr { border: none; border-top: 1px solid #dddddd; margin: 16pt 0; }
-          img { max-width: 100%; height: auto; }
-          strong, b { font-weight: 600; }
-        </style>
-      </head>
-      <body>
-        <h1>${escapeHtml(title)}</h1>
-        ${html}
-      </body>
-      </html>
-    `);
-    iframeDoc.close();
-    
-    const filename = sanitizeFilename(title) + ".pdf";
-    
-    await html2pdf()
-      .set({
-        margin: [15, 15, 15, 15],
-        filename,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
+    case "code": {
+      const t = token as Tokens.Code;
+      return {
+        table: {
+          widths: ["*"],
+          body: [[{ text: t.text, style: "codeBlock", fillColor: "#f5f5f5" }]],
         },
-        jsPDF: { 
-          unit: "mm", 
-          format: "a4", 
-          orientation: "portrait" 
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#e0e0e0",
+          vLineColor: () => "#e0e0e0",
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
         },
-      })
-      .from(iframeDoc.body)
-      .save();
-  } finally {
-    document.body.removeChild(iframe);
+        margin: [0, 5, 0, 10],
+      } as ContentTable;
+    }
+    
+    case "blockquote": {
+      const t = token as Tokens.Blockquote;
+      const innerContent = tokensToPdfContent(t.tokens);
+      return {
+        columns: [
+          { width: 3, canvas: [{ type: "rect", x: 0, y: 0, w: 3, h: 50, color: "#cccccc" }] },
+          { width: "*", stack: innerContent, margin: [10, 0, 0, 0] } as ContentStack,
+        ],
+        margin: [0, 5, 0, 10],
+      } as ContentColumns;
+    }
+    
+    case "list": {
+      const t = token as Tokens.List;
+      const items: Content[] = t.items.map((item, index) => {
+        const itemContent = tokensToPdfContent(item.tokens);
+        const bullet = t.ordered ? `${index + 1}.` : "•";
+        return {
+          columns: [
+            { width: 20, text: bullet, alignment: "right" as const },
+            { width: "*", stack: itemContent },
+          ],
+          style: "listItem",
+        } as ContentColumns;
+      });
+      return items;
+    }
+    
+    case "table": {
+      const t = token as Tokens.Table;
+      const headerRow = t.header.map(cell => ({
+        text: parseInlineTokens(cell.tokens),
+        bold: true,
+        fillColor: "#f0f0f0",
+      }));
+      const bodyRows = t.rows.map(row =>
+        row.map(cell => ({ text: parseInlineTokens(cell.tokens) }))
+      );
+      
+      return {
+        table: {
+          headerRows: 1,
+          widths: Array(t.header.length).fill("*") as string[],
+          body: [headerRow, ...bodyRows],
+        },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#dddddd",
+          vLineColor: () => "#dddddd",
+          paddingLeft: () => 6,
+          paddingRight: () => 6,
+          paddingTop: () => 4,
+          paddingBottom: () => 4,
+        },
+        margin: [0, 5, 0, 10],
+      } as ContentTable;
+    }
+    
+    case "hr":
+      return {
+        canvas: [{ type: "line", x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 0.5, lineColor: "#cccccc" }],
+        margin: [0, 10, 0, 10],
+      } as ContentCanvas;
+    
+    case "space":
+      return { text: "", margin: [0, 5, 0, 5] } as ContentText;
+    
+    default:
+      // For unknown tokens, try to extract text
+      if ("text" in token && typeof token.text === "string") {
+        return { text: token.text, style: "paragraph" } as ContentText;
+      }
+      return null;
   }
 }
 
-function escapeHtml(text: string): string {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
+type InlineContent = string | { text: string | InlineContent[]; bold?: boolean; italics?: boolean; link?: string; decoration?: string; font?: string; background?: string };
+
+function parseInlineTokens(tokens: Token[] | undefined): InlineContent[] {
+  if (!tokens) return [];
+  
+  const result: InlineContent[] = [];
+  
+  for (const token of tokens) {
+    switch (token.type) {
+      case "text":
+        result.push((token as Tokens.Text).text);
+        break;
+      
+      case "strong":
+        result.push({
+          text: parseInlineTokens((token as Tokens.Strong).tokens),
+          bold: true,
+        });
+        break;
+      
+      case "em":
+        result.push({
+          text: parseInlineTokens((token as Tokens.Em).tokens),
+          italics: true,
+        });
+        break;
+      
+      case "codespan":
+        result.push({
+          text: (token as Tokens.Codespan).text,
+          font: "Courier",
+          background: "#f5f5f5",
+        });
+        break;
+      
+      case "link":
+        result.push({
+          text: parseInlineTokens((token as Tokens.Link).tokens),
+          link: (token as Tokens.Link).href,
+          decoration: "underline",
+        });
+        break;
+      
+      case "del":
+        result.push({
+          text: parseInlineTokens((token as Tokens.Del).tokens),
+          decoration: "lineThrough",
+        });
+        break;
+      
+      default:
+        if ("text" in token && typeof token.text === "string") {
+          result.push(token.text);
+        }
+    }
+  }
+  
+  return result;
 }
 
 function sanitizeFilename(name: string): string {
