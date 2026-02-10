@@ -63,6 +63,23 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
         // NOTE: currentNoteId is intentionally NOT persisted/synced
         // It's local UI state - each device should have its own selection
       }),
+      // Custom merge to protect UI state from being overwritten by server data
+      // This handles the case where old server data still has currentNoteId
+      merge: (persistedState: unknown, currentState: VaultState): VaultState => {
+        const persisted = persistedState as Partial<VaultState>;
+        return {
+          ...currentState,
+          // Only merge data fields, never UI state
+          notes: persisted.notes ?? currentState.notes,
+          folders: persisted.folders ?? currentState.folders,
+          tags: persisted.tags ?? currentState.tags,
+          settings: persisted.settings ?? currentState.settings,
+          // Explicitly preserve UI state - never overwrite from server
+          currentNoteId: currentState.currentNoteId,
+          currentFolderId: currentState.currentFolderId,
+          currentTagFilter: currentState.currentTagFilter,
+        };
+      },
       onRehydrateStorage: () => (_state: VaultState | undefined, error: unknown) => {
         rehydrationComplete = true;
         if (error) {
