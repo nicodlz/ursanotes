@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Trash2, Menu } from "lucide-react";
+import { Trash2, Menu, Download } from "lucide-react";
 import { useVaultStore } from "../stores/index.js";
 import { Button } from "@/components/ui/button";
 import { FolderPicker } from "./FolderPicker.js";
 import { TagPicker } from "./TagPicker.js";
+import { exportToPdf } from "@/lib/export-pdf.js";
 
 interface NoteHeaderProps {
   noteId: string;
@@ -110,6 +111,17 @@ export function NoteHeader({ noteId, onMenuClick }: NoteHeaderProps) {
       <div className="flex items-center">
         <TagPicker noteId={noteId} />
       </div>
+
+      {/* Export PDF button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 text-[var(--text-secondary)] hover:text-[var(--accent)] active:text-[var(--accent)] touch-manipulation shrink-0"
+        onClick={() => exportToPdf({ title: note.title, content: note.content })}
+        title="Export as PDF"
+      >
+        <Download className="w-4 h-4" />
+      </Button>
 
       {/* Delete button */}
       <Button
