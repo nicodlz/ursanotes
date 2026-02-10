@@ -1,15 +1,47 @@
-import { Menu } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Sheet, SheetContent } from "./ui/sheet.js";
 import { Button } from "./ui/button.js";
 import { SidebarContent } from "./Sidebar/SidebarContent.js";
 
 /**
- * Desktop sidebar - fixed width
- * Refactored to use extracted SidebarContent component
+ * Desktop sidebar - collapsible
  */
-export function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
+  if (collapsed) {
+    return (
+      <div className="hidden md:flex w-12 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex-col items-center py-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          className="h-9 w-9 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          title="Expand sidebar"
+        >
+          <PanelLeft className="h-5 w-5" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="hidden md:flex w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] flex-col h-full">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)]">
+        <span className="text-sm font-semibold text-[var(--text-primary)]">VaultMD</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          className="h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          title="Collapse sidebar"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </Button>
+      </div>
       <SidebarContent />
     </div>
   );

@@ -6,14 +6,18 @@ import { EmptyState } from "./EmptyState.js";
 
 export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // Use the vault store hook for reactive updates
   const currentNoteId = useVaultStore((state) => state.currentNoteId);
 
   return (
     <div className="h-screen flex overflow-hidden">
-      {/* Desktop Sidebar - hidden on mobile */}
-      <Sidebar />
+      {/* Desktop Sidebar - hidden on mobile, collapsible */}
+      <Sidebar 
+        collapsed={sidebarCollapsed} 
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)} 
+      />
       
       {/* Mobile Sidebar - drawer */}
       <MobileSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />

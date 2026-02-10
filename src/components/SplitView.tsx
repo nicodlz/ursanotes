@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Editor } from "./Editor.js";
 import { Preview } from "./Preview.js";
 import { NoteHeader } from "./NoteHeader.js";
+import { ResizeHandle } from "./ResizeHandle.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.js";
 
 interface SplitViewProps {
@@ -11,17 +12,27 @@ interface SplitViewProps {
 
 export function SplitView({ noteId, onMenuClick }: SplitViewProps) {
   const [activeTab, setActiveTab] = useState<string>("edit");
+  const [leftWidthPercent, setLeftWidthPercent] = useState(50);
 
   return (
     <div className="flex flex-col h-full">
       <NoteHeader noteId={noteId} onMenuClick={onMenuClick} />
       
-      {/* Desktop: side-by-side view */}
+      {/* Desktop: resizable side-by-side view */}
       <div className="hidden md:flex flex-1 min-h-0">
-        <div className="w-1/2 border-r border-border">
+        <div 
+          className="border-r border-border overflow-hidden"
+          style={{ width: `${leftWidthPercent}%` }}
+        >
           <Editor key={noteId} noteId={noteId} />
         </div>
-        <div className="w-1/2 overflow-auto bg-[var(--bg-primary)]">
+        
+        <ResizeHandle onResize={setLeftWidthPercent} />
+        
+        <div 
+          className="overflow-auto bg-[var(--bg-primary)]"
+          style={{ width: `${100 - leftWidthPercent}%` }}
+        >
           <Preview key={noteId} noteId={noteId} />
         </div>
       </div>
