@@ -60,7 +60,8 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
         folders: state.folders,
         tags: state.tags,
         settings: state.settings,
-        currentNoteId: state.currentNoteId,
+        // NOTE: currentNoteId is intentionally NOT persisted/synced
+        // It's local UI state - each device should have its own selection
       }),
       onRehydrateStorage: () => (_state: VaultState | undefined, error: unknown) => {
         rehydrationComplete = true;

@@ -38,4 +38,5 @@ export interface VaultState {
 }
 
 // Persisted state type (subset of VaultState)
-export type PersistedVaultState = Pick<VaultState, "notes" | "folders" | "tags" | "settings" | "currentNoteId">;
+// NOTE: currentNoteId is NOT persisted - it's local UI state per device
+export type PersistedVaultState = Pick<VaultState, "notes" | "folders" | "tags" | "settings">;
