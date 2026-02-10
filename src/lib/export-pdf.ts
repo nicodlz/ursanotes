@@ -61,11 +61,11 @@ export async function exportToPdf({ title, content }: ExportOptions): Promise<vo
         lineHeight: 1.4,
       },
       code: {
-        font: "Courier",
+        font: "Roboto",
         fontSize: 10,
       },
       codeBlock: {
-        font: "Courier",
+        font: "Roboto",
         fontSize: 9,
         margin: [0, 5, 0, 10],
       },
@@ -81,7 +81,7 @@ export async function exportToPdf({ title, content }: ExportOptions): Promise<vo
       },
     },
     defaultStyle: {
-      font: "Helvetica",
+      font: "Roboto",
       fontSize: 11,
     },
   };
@@ -248,7 +248,7 @@ function parseInlineTokens(tokens: Token[] | undefined): InlineContent[] {
       case "codespan":
         result.push({
           text: (token as Tokens.Codespan).text,
-          font: "Courier",
+          font: "Roboto",
           background: "#f5f5f5",
         });
         break;
