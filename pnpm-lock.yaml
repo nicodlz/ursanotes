@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@zod-vault/zustand': link:../zod-vault/packages/zustand
-
 importers:
 
   .:
@@ -39,8 +36,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       '@zod-vault/zustand':
-        specifier: link:../zod-vault/packages/zustand
-        version: link:../zod-vault/packages/zustand
+        specifier: 0.2.8
+        version: 0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1899,6 +1896,11 @@ packages:
 
   '@zod-vault/crypto@0.2.0':
     resolution: {integrity: sha512-cw65wN0+QTAkVhU6chsCAk/C9hZNBLk6o2rQjiNvxC5rT9d+7xWRntpfJegABHGkM6qi5RDn3iwAFPgd5PgnpA==}
+
+  '@zod-vault/zustand@0.2.8':
+    resolution: {integrity: sha512-vgBly72Zeo9LCJHu84viaCwQy/qQzr9Cm0GPchkMowdOZ+U7DeEaFVy0lyEjvaE7zIbUzoHLXf6vqduxESqOUw==}
+    peerDependencies:
+      zustand: '>=4.0.0'
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -5880,6 +5882,11 @@ snapshots:
     dependencies:
       '@z-base/cryptosuite': 1.0.1
       hash-wasm: 4.12.0
+
+  '@zod-vault/zustand@0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
+    dependencies:
+      '@zod-vault/crypto': 0.2.0
+      zustand: 5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
 
   accepts@2.0.0:
     dependencies:

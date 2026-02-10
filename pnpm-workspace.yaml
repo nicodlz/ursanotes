@@ -1,2 +1,0 @@
-overrides:
-  '@zod-vault/zustand': link:../zod-vault/packages/zustand
