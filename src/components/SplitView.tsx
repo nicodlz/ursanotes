@@ -19,10 +19,10 @@ export function SplitView({ noteId, onMenuClick }: SplitViewProps) {
       {/* Desktop: side-by-side view */}
       <div className="hidden md:flex flex-1 min-h-0">
         <div className="w-1/2 border-r border-border">
-          <Editor noteId={noteId} />
+          <Editor key={noteId} noteId={noteId} />
         </div>
         <div className="w-1/2 overflow-auto bg-[var(--bg-primary)]">
-          <Preview noteId={noteId} />
+          <Preview key={noteId} noteId={noteId} />
         </div>
       </div>
 
@@ -44,10 +44,10 @@ export function SplitView({ noteId, onMenuClick }: SplitViewProps) {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="edit" className="flex-1 mt-0 min-h-0 overflow-hidden">
-            <Editor noteId={noteId} />
+            <Editor key={noteId} noteId={noteId} />
           </TabsContent>
           <TabsContent value="preview" className="flex-1 mt-0 min-h-0 overflow-auto bg-[var(--bg-primary)]">
-            <Preview noteId={noteId} />
+            <Preview key={noteId} noteId={noteId} />
           </TabsContent>
         </Tabs>
       </div>
