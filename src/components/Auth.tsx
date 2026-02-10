@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSignUp, useSignIn, usePasskeySupport, type ZKCredential } from "@zod-vault/client";
+import { useSignUp, useSignIn, usePasskeySupport, type ZKCredential } from "@ursalock/client";
 import { vaultClient } from "../lib/vault-client.js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card.js";
 import { Button } from "./ui/button.js";

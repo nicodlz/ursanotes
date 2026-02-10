@@ -1,4 +1,4 @@
-import { useAuth } from "@zod-vault/client";
+import { useAuth } from "@ursalock/client";
 import { vaultClient } from "../lib/vault-client.js";
 import { useVaultInitializer } from "../hooks/useVaultInitializer.js";
 import { Auth } from "./Auth.js";

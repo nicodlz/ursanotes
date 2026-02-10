@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Folder, Tag as TagIcon, FileText } from "lucide-react";
-import { useSignOut } from "@zod-vault/client";
+import { useSignOut } from "@ursalock/client";
 import { useVaultStore, useSyncStatus } from "@/stores/index.js";
 import { vaultClient } from "@/lib/vault-client.js";
 import { useSidebarFilters } from "@/hooks/useSidebarFilters.js";

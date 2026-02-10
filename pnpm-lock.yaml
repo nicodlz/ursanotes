@@ -32,13 +32,13 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.1.18
         version: 4.1.18(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.30.2))
-      '@zod-vault/client':
+      '@ursalock/client':
+        specifier: ^0.2.2
+        version: 0.2.2(react@19.2.4)
+      '@ursalock/crypto':
         specifier: ^0.2.1
-        version: 0.2.1(react@19.2.4)
-      '@zod-vault/crypto':
-        specifier: ^0.2.0
-        version: 0.2.0
-      '@zod-vault/zustand':
+        version: 0.2.1
+      '@ursalock/zustand':
         specifier: 0.2.8
         version: 0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       class-variance-authority:
@@ -1905,6 +1905,22 @@ packages:
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
 
+  '@ursalock/client@0.2.2':
+    resolution: {integrity: sha512-WVr3hnU+XXvrjjvzaekBSPWM8AU9Ez9tQNlRm7Dl6xI8RCAQBJLo5xzei5Ta8oynglDtIKuN659UGZLUzs6pgQ==}
+    peerDependencies:
+      react: '>=18.0.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+
+  '@ursalock/crypto@0.2.1':
+    resolution: {integrity: sha512-3WRTQf2q3b/Fs0iag+YdtX2P5nzE3C2fkTjxTfW52r4mjnOvxMa9Uv8qi4XtdEDtWUsDQklG5/PPd6i9kjLAcw==}
+
+  '@ursalock/zustand@0.2.8':
+    resolution: {integrity: sha512-D0DYEIVm8M6jPpe1viuzk9wZ0F6yczlrs2zkZU8Jp3yZYRtlft/5F1ukmFLumktH2LH1luliYJNNL3a7ty6B9g==}
+    peerDependencies:
+      zustand: '>=4.0.0'
+
   '@vitejs/plugin-react@5.1.3':
     resolution: {integrity: sha512-NVUnA6gQCl8jfoYqKqQU5Clv0aPw14KkZYCsX6T9Lfu9slI0LOU10OTwFHS/WmptsMMpshNd/1tuWsHQ2Uk+cg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1922,22 +1938,6 @@ packages:
   '@z-base/zero-knowledge-credentials@1.0.2':
     resolution: {integrity: sha512-VwUzhoX9zzRVC0hC+Uana4cdwBQLYmuKaykXSfBAZduF9l8nVu03a/vY+9lh7VjL57/jNK+961rSgwYKCS7uIg==}
     engines: {node: '>=20'}
-
-  '@zod-vault/client@0.2.1':
-    resolution: {integrity: sha512-D4C3mjsmk/0FLHnx+2S+dCNzPFba+GwKMGDSjLHKVXDFTQWmPagyfEkyKkAGyFsuSx+3KbJMvzX79s86tj8MDw==}
-    peerDependencies:
-      react: '>=18.0.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
-
-  '@zod-vault/crypto@0.2.0':
-    resolution: {integrity: sha512-cw65wN0+QTAkVhU6chsCAk/C9hZNBLk6o2rQjiNvxC5rT9d+7xWRntpfJegABHGkM6qi5RDn3iwAFPgd5PgnpA==}
-
-  '@zod-vault/zustand@0.2.8':
-    resolution: {integrity: sha512-vgBly72Zeo9LCJHu84viaCwQy/qQzr9Cm0GPchkMowdOZ+U7DeEaFVy0lyEjvaE7zIbUzoHLXf6vqduxESqOUw==}
-    peerDependencies:
-      zustand: '>=4.0.0'
 
   abs-svg-path@0.1.1:
     resolution: {integrity: sha512-d8XPSGjfyzlXC3Xx891DJRyZfqk5JU0BJrDQcsWomFIV1/BIzPW5HDH5iDdWpqWaav0YVIEzT1RHTwWr0FFshA==}
@@ -6042,6 +6042,22 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
+  '@ursalock/client@0.2.2(react@19.2.4)':
+    dependencies:
+      '@z-base/zero-knowledge-credentials': 1.0.2
+    optionalDependencies:
+      react: 19.2.4
+
+  '@ursalock/crypto@0.2.1':
+    dependencies:
+      '@z-base/cryptosuite': 1.0.1
+      hash-wasm: 4.12.0
+
+  '@ursalock/zustand@0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
+    dependencies:
+      '@ursalock/crypto': 0.2.1
+      zustand: 5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
+
   '@vitejs/plugin-react@5.1.3(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.30.2))':
     dependencies:
       '@babel/core': 7.29.0
@@ -6064,22 +6080,6 @@ snapshots:
     dependencies:
       '@z-base/bytecodec': 1.1.0
       '@z-base/cryptosuite': 1.0.1
-
-  '@zod-vault/client@0.2.1(react@19.2.4)':
-    dependencies:
-      '@z-base/zero-knowledge-credentials': 1.0.2
-    optionalDependencies:
-      react: 19.2.4
-
-  '@zod-vault/crypto@0.2.0':
-    dependencies:
-      '@z-base/cryptosuite': 1.0.1
-      hash-wasm: 4.12.0
-
-  '@zod-vault/zustand@0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
-    dependencies:
-      '@zod-vault/crypto': 0.2.0
-      zustand: 5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
 
   abs-svg-path@0.1.1: {}
 

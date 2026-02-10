@@ -1,6 +1,6 @@
 import { create, type StateCreator } from "zustand";
-import { vault, type VaultOptionsJwk } from "@zod-vault/zustand";
-import type { CipherJWK } from "@zod-vault/crypto";
+import { vault, type VaultOptionsJwk } from "@ursalock/zustand";
+import type { CipherJWK } from "@ursalock/crypto";
 import type { VaultState, PersistedVaultState } from "./types.js";
 import { createStoreState } from "./store-state.js";
 import { vaultClient } from "../lib/vault-client.js";
