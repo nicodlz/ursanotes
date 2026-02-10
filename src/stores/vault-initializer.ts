@@ -37,11 +37,14 @@ let vaultStore: VaultStore | null = null;
  * Must be called after authentication
  */
 export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultStore> {
+  console.log("[VaultInit] Starting initialization...");
+  
   return new Promise((resolve, reject) => {
     let rehydrationComplete = false;
     let rehydrationError: Error | null = null;
 
     const storeCreator: StateCreator<VaultState, [], []> = createStoreState;
+    console.log("[VaultInit] Store creator ready");
 
     const vaultOptions: VaultOptionsJwk<VaultState, PersistedVaultState> = {
       name: "vaultmd-vault",
@@ -80,34 +83,47 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
           currentTagFilter: currentState.currentTagFilter,
         };
       },
-      onRehydrateStorage: () => (_state: VaultState | undefined, error: unknown) => {
-        rehydrationComplete = true;
-        if (error) {
-          rehydrationError = error instanceof Error ? error : new Error(String(error));
-        }
+      onRehydrateStorage: () => {
+        console.log("[VaultInit] onRehydrateStorage outer called");
+        return (_state: VaultState | undefined, error: unknown) => {
+          console.log("[VaultInit] onRehydrateStorage inner called, error:", error);
+          rehydrationComplete = true;
+          if (error) {
+            rehydrationError = error instanceof Error ? error : new Error(String(error));
+          }
+        };
       },
     };
+    
+    console.log("[VaultInit] Creating vault middleware...");
 
     // Use type assertion to work around complex zustand middleware types
     // This is a known pattern when using zustand middlewares with strict TS
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vaultMiddleware = vault(storeCreator as unknown as StateCreator<VaultState, [], []>, vaultOptions as unknown as VaultOptionsJwk<VaultState, VaultState>);
+    console.log("[VaultInit] Vault middleware created, creating store...");
+    
     const store = create(vaultMiddleware as StateCreator<VaultState, [], []>) as unknown as VaultStore;
+    console.log("[VaultInit] Store created, waiting for hydration...");
 
     // Wait for hydration to complete with timeout
     const startTime = Date.now();
     const timeout = 30000; // 30 seconds
 
     const checkHydration = () => {
+      console.log("[VaultInit] checkHydration: complete=", rehydrationComplete, "elapsed=", Date.now() - startTime);
       if (rehydrationComplete) {
         if (rehydrationError) {
+          console.log("[VaultInit] Hydration failed:", rehydrationError);
           vaultStore = null;
           reject(rehydrationError);
         } else {
+          console.log("[VaultInit] Hydration complete, store ready!");
           vaultStore = store;
           resolve(store);
         }
       } else if (Date.now() - startTime > timeout) {
+        console.log("[VaultInit] Timeout waiting for hydration");
         vaultStore = null;
         reject(new Error("Vault initialization timeout"));
       } else {
