@@ -87,7 +87,7 @@ export function Auth({ onAuthenticated }: AuthProps) {
             <Lock className="w-10 h-10 text-[var(--accent)]" />
           </div>
           <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">
-            VaultMD
+            Ursanotes
           </h1>
           <p className="text-[var(--text-secondary)]">
             End-to-end encrypted markdown notes

@@ -5,6 +5,6 @@ const SERVER_URL = import.meta.env.VITE_VAULT_SERVER_URL ?? "https://vault.ndlz.
 
 export const vaultClient = new VaultClient({
   serverUrl: SERVER_URL,
-  rpName: "vaultmd",
-  storageKey: "vaultmd:auth",
+  rpName: "ursanotes",
+  storageKey: "ursanotes:auth",
 });

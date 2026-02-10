@@ -7,7 +7,7 @@ import { ThemeProvider } from "./components/theme-provider.js";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider defaultTheme="system" storageKey="vaultmd-theme">
+    <ThemeProvider defaultTheme="system" storageKey="ursanotes-theme">
       <App />
     </ThemeProvider>
   </StrictMode>,

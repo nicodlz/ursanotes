@@ -82,7 +82,7 @@ export function SidebarContent({ onNoteSelect }: SidebarContentProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">🔐</span>
-            <h1 className="font-bold text-lg text-[var(--text-primary)]">VaultMD</h1>
+            <h1 className="font-bold text-lg text-[var(--text-primary)]">Ursanotes</h1>
           </div>
           <button
             onClick={() => signOut()}

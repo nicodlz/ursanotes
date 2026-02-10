@@ -10,8 +10,8 @@ const defaultSettings: Settings = {
 
 const welcomeNote: Note = {
   id: "00000000-0000-0000-0000-000000000001",
-  title: "Welcome to VaultMD",
-  content: `# Welcome to VaultMD 🔐
+  title: "Welcome to Ursanotes",
+  content: `# Welcome to Ursanotes 🔐
 
 Your **end-to-end encrypted** markdown notes.
 

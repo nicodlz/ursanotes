@@ -54,7 +54,7 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
     const storeCreator: StateCreator<VaultState, [], []> = createStoreState;
 
     const vaultOptions: VaultOptionsJwk<VaultState, PersistedVaultState> = {
-      name: "vaultmd-vault",
+      name: "ursanotes-vault",
       cipherJwk,
       server: SERVER_URL,
       getToken: () => {

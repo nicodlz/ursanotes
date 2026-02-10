@@ -13,7 +13,7 @@ export function EmptyState({ onMenuClick }: EmptyStateProps) {
         <MobileMenuButton onClick={onMenuClick} />
         <div className="flex items-center gap-2">
           <span className="text-lg">🔐</span>
-          <h1 className="font-semibold text-[var(--text-primary)]">VaultMD</h1>
+          <h1 className="font-semibold text-[var(--text-primary)]">Ursanotes</h1>
         </div>
       </div>
       
