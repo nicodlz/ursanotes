@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useVaultStore } from "@/stores/vault.js";
 import { Sidebar, MobileSidebar } from "../Sidebar.js";
 import { SplitView } from "../SplitView.js";
@@ -10,6 +10,11 @@ export function MainLayout() {
   
   // Use the vault store hook for reactive updates
   const currentNoteId = useVaultStore((state) => state.currentNoteId);
+  
+  // Debug: log when currentNoteId changes
+  useEffect(() => {
+    console.log("[MainLayout] currentNoteId changed to:", currentNoteId);
+  }, [currentNoteId]);
 
   return (
     <div className="h-screen flex overflow-hidden">

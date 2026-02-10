@@ -26,8 +26,10 @@ interface EditorProps {
  * Configuration extracted to lib/editor modules.
  */
 export function Editor({ noteId }: EditorProps) {
+  console.log("[Editor] Rendering with noteId:", noteId);
   const note = useVaultStore((state) => state.notes.find((n) => n.id === noteId));
   const updateNote = useVaultStore((state) => state.updateNote);
+  console.log("[Editor] Found note:", note?.title);
 
   const handleChange = useCallback((content: string, title: string) => {
     updateNote(noteId, { content, title });
