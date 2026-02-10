@@ -83,15 +83,24 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
       // This handles the case where old server data still has currentNoteId
       merge: (persistedState: unknown, currentState: VaultState): VaultState => {
         const persisted = persistedState as Partial<VaultState>;
+        const notes = persisted.notes ?? currentState.notes;
+        
+        // Ensure currentNoteId is valid - fallback to first note if undefined
+        let currentNoteId = currentState.currentNoteId;
+        if (!currentNoteId && notes.length > 0) {
+          currentNoteId = notes[0].id;
+        }
+        
         return {
           ...currentState,
           // Only merge data fields, never UI state
-          notes: persisted.notes ?? currentState.notes,
+          notes,
           folders: persisted.folders ?? currentState.folders,
           tags: persisted.tags ?? currentState.tags,
           settings: persisted.settings ?? currentState.settings,
           // Explicitly preserve UI state - never overwrite from server
-          currentNoteId: currentState.currentNoteId,
+          // Use validated currentNoteId with fallback
+          currentNoteId,
           currentFolderId: currentState.currentFolderId,
           currentTagFilter: currentState.currentTagFilter,
         };
