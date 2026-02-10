@@ -20,50 +20,71 @@ export async function exportToPdf({ title, content }: ExportOptions): Promise<vo
   
   container.innerHTML = `
     <style>
+      /* Force all elements to use hex colors - html2canvas doesn't support oklch() */
+      .pdf-export-container,
+      .pdf-export-container * {
+        color: #1a1a1a !important;
+        background-color: transparent !important;
+        border-color: #dddddd !important;
+        outline-color: #dddddd !important;
+        text-decoration-color: #1a1a1a !important;
+        caret-color: #1a1a1a !important;
+        fill: #1a1a1a !important;
+        stroke: #1a1a1a !important;
+      }
       .pdf-export-container {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 12pt;
         line-height: 1.6;
-        color: #1a1a1a;
+        color: #1a1a1a !important;
+        background-color: #ffffff !important;
         padding: 20px;
       }
-      .pdf-export-container h1 { font-size: 24pt; margin: 0 0 16pt 0; border-bottom: 1px solid #ddd; padding-bottom: 8pt; }
-      .pdf-export-container h2 { font-size: 18pt; margin: 16pt 0 12pt 0; }
-      .pdf-export-container h3 { font-size: 14pt; margin: 14pt 0 10pt 0; }
-      .pdf-export-container p { margin: 0 0 10pt 0; }
-      .pdf-export-container ul, .pdf-export-container ol { margin: 0 0 10pt 0; padding-left: 20pt; }
-      .pdf-export-container li { margin: 4pt 0; }
+      .pdf-export-container h1 { font-size: 24pt; margin: 0 0 16pt 0; border-bottom: 1px solid #dddddd !important; padding-bottom: 8pt; color: #1a1a1a !important; }
+      .pdf-export-container h2 { font-size: 18pt; margin: 16pt 0 12pt 0; color: #1a1a1a !important; }
+      .pdf-export-container h3 { font-size: 14pt; margin: 14pt 0 10pt 0; color: #1a1a1a !important; }
+      .pdf-export-container p { margin: 0 0 10pt 0; color: #1a1a1a !important; }
+      .pdf-export-container ul, .pdf-export-container ol { margin: 0 0 10pt 0; padding-left: 20pt; color: #1a1a1a !important; }
+      .pdf-export-container li { margin: 4pt 0; color: #1a1a1a !important; }
       .pdf-export-container code { 
-        background: #f4f4f4; 
+        background-color: #f4f4f4 !important; 
+        color: #1a1a1a !important;
         padding: 2pt 4pt; 
         border-radius: 3pt;
         font-family: 'Fira Code', 'Consolas', monospace;
         font-size: 10pt;
       }
       .pdf-export-container pre { 
-        background: #f4f4f4; 
+        background-color: #f4f4f4 !important; 
+        color: #1a1a1a !important;
         padding: 12pt; 
         border-radius: 4pt;
         overflow-x: auto;
         margin: 0 0 10pt 0;
       }
-      .pdf-export-container pre code { background: none; padding: 0; }
+      .pdf-export-container pre code { background-color: transparent !important; padding: 0; color: #1a1a1a !important; }
       .pdf-export-container blockquote { 
-        border-left: 3pt solid #ddd; 
+        border-left: 3pt solid #cccccc !important; 
         margin: 0 0 10pt 0; 
         padding-left: 12pt;
-        color: #666;
+        color: #666666 !important;
+        background-color: transparent !important;
       }
       .pdf-export-container table { border-collapse: collapse; margin: 0 0 10pt 0; width: 100%; }
       .pdf-export-container th, .pdf-export-container td { 
-        border: 1px solid #ddd; 
+        border: 1px solid #dddddd !important; 
         padding: 6pt 10pt; 
         text-align: left;
+        color: #1a1a1a !important;
       }
-      .pdf-export-container th { background: #f4f4f4; font-weight: 600; }
-      .pdf-export-container a { color: #0066cc; text-decoration: none; }
-      .pdf-export-container hr { border: none; border-top: 1px solid #ddd; margin: 16pt 0; }
+      .pdf-export-container th { background-color: #f4f4f4 !important; font-weight: 600; color: #1a1a1a !important; }
+      .pdf-export-container td { background-color: #ffffff !important; }
+      .pdf-export-container a { color: #0066cc !important; text-decoration: none; }
+      .pdf-export-container hr { border: none; border-top: 1px solid #dddddd !important; margin: 16pt 0; }
       .pdf-export-container img { max-width: 100%; height: auto; }
+      .pdf-export-container mark { background-color: #ffff00 !important; color: #1a1a1a !important; }
+      .pdf-export-container strong, .pdf-export-container b { color: #1a1a1a !important; }
+      .pdf-export-container em, .pdf-export-container i { color: #1a1a1a !important; }
     </style>
     <h1>${escapeHtml(title)}</h1>
     ${html}
