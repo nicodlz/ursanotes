@@ -6,7 +6,6 @@ import { createEditorExtensions } from "@/lib/editor/extensions.js";
 interface UseEditorOptions {
   initialContent: string;
   onChange: (content: string, title: string) => void;
-  debounceMs?: number;
 }
 
 interface UseEditorReturn {
@@ -21,15 +20,11 @@ interface UseEditorReturn {
 export function useEditor({
   initialContent,
   onChange,
-  debounceMs = 500,
 }: UseEditorOptions): UseEditorReturn {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isExternalUpdate = useRef(false);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track the onChange that was used when debounce started
-  const pendingOnChangeRef = useRef<typeof onChange | null>(null);
-  // Keep latest onChange in ref to avoid stale closure in debounce
+  // Keep latest onChange in ref to avoid stale closure
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -37,27 +32,17 @@ export function useEditor({
     if (update.docChanged && !isExternalUpdate.current) {
       const content = update.state.doc.toString();
       
-      // Debounce save
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
+      // Extract title from first heading or first line
+      const lines = content.split("\n");
+      const titleLine = lines.find((line) => line.trim());
+      let title = titleLine?.replace(/^#+\s*/, "").slice(0, 50) || "Untitled";
+      if (title.length === 50) title += "...";
       
-      // Capture the current onChange when debounce starts
-      pendingOnChangeRef.current = onChangeRef.current;
-      
-      debounceTimer.current = setTimeout(() => {
-        // Extract title from first heading or first line
-        const lines = content.split("\n");
-        const titleLine = lines.find((line) => line.trim());
-        let title = titleLine?.replace(/^#+\s*/, "").slice(0, 50) || "Untitled";
-        if (title.length === 50) title += "...";
-        
-        // Use the onChange that was captured when debounce started
-        pendingOnChangeRef.current?.(content, title);
-        pendingOnChangeRef.current = null;
-      }, debounceMs);
+      // Update store immediately for reactive preview
+      // The vault middleware handles debouncing for server sync
+      onChangeRef.current(content, title);
     }
-  }, [debounceMs]);
+  }, []);
 
   // Initialize editor
   useEffect(() => {
@@ -79,9 +64,6 @@ export function useEditor({
     viewRef.current = view;
 
     return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
       view.destroy();
       viewRef.current = null;
     };
@@ -90,24 +72,6 @@ export function useEditor({
   // Update content when it changes externally (e.g., switching notes)
   useEffect(() => {
     if (viewRef.current && viewRef.current.state.doc.toString() !== initialContent) {
-      // Flush any pending debounced save BEFORE switching content
-      // Use pendingOnChangeRef to save to the note that was being edited
-      if (debounceTimer.current && pendingOnChangeRef.current) {
-        clearTimeout(debounceTimer.current);
-        debounceTimer.current = null;
-        
-        // Save current content immediately to the note that was being edited
-        const currentContent = viewRef.current.state.doc.toString();
-        const lines = currentContent.split("\n");
-        const titleLine = lines.find((line) => line.trim());
-        let title = titleLine?.replace(/^#+\s*/, "").slice(0, 50) || "Untitled";
-        if (title.length === 50) title += "...";
-        // Use the captured onChange from when editing started
-        pendingOnChangeRef.current(currentContent, title);
-        pendingOnChangeRef.current = null;
-      }
-      
-      // Now switch to new content
       isExternalUpdate.current = true;
       viewRef.current.dispatch({
         changes: {
