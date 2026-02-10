@@ -159,7 +159,9 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
  * Throws if not initialized
  */
 export function getVaultStore(): VaultStore {
+  console.log("[getVaultStore] Called, vaultStore is:", vaultStore ? "SET" : "NULL");
   if (!vaultStore) {
+    console.error("[getVaultStore] THROWING - vault not initialized!");
     throw new Error("Vault not initialized. Call initializeVaultStore first.");
   }
   return vaultStore;
@@ -176,7 +178,10 @@ export function isVaultInitialized(): boolean {
  * Clear the vault store (for logout)
  */
 export function clearVaultStore(): void {
+  console.log("[clearVaultStore] Called! Setting vaultStore to null");
+  console.trace("[clearVaultStore] Stack trace:");
   vaultStore = null;
+  initializationPromise = null;
 }
 
 /**
