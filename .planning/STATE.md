@@ -61,5 +61,12 @@
 - [ ] Final QA
 - [ ] README with screenshots
 
+## Quick Tasks Completed
+### Editor UI Improvements (2026-02-10)
+- ✅ Markdown toolbar (13 buttons)
+- ✅ Keyboard shortcuts (13 shortcuts)
+- ✅ CodeMirror theme improvements
+- **Commits:** 0cf96bc, 76b81ee, 0ca476e
+
 ## Last Updated
-2026-02-09T19:52:00Z
+2026-02-10T13:12:00Z
