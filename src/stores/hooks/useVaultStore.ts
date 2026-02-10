@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getVaultStore } from "../vault-initializer.js";
 import type { VaultState } from "../types.js";
 
@@ -9,23 +9,24 @@ import type { VaultState } from "../types.js";
 export function useVaultStore<T>(selector: (state: VaultState) => T): T {
   const store = getVaultStore();
   
-  // Initialize with current value
-  const [value, setValue] = useState<T>(() => selector(store.getState()));
+  // Keep selector in ref to always have latest version
+  const selectorRef = useRef(selector);
+  selectorRef.current = selector;
   
-  // Memoize selector to avoid issues
-  const memoizedSelector = useCallback(selector, []);
+  // Initialize with current value
+  const [value, setValue] = useState<T>(() => selectorRef.current(store.getState()));
   
   useEffect(() => {
     // Update immediately in case state changed between render and effect
-    setValue(memoizedSelector(store.getState()));
+    setValue(selectorRef.current(store.getState()));
     
     // Subscribe to future changes
     const unsubscribe = store.subscribe(() => {
-      setValue(memoizedSelector(store.getState()));
+      setValue(selectorRef.current(store.getState()));
     });
     
     return unsubscribe;
-  }, [store, memoizedSelector]);
+  }, [store]); // Only re-subscribe when store changes
   
   return value;
 }
