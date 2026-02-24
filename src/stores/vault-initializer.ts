@@ -40,8 +40,16 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: VAULT_NAME }),
     });
-    if (!createRes.ok) throw new Error(`Failed to create vault: ${createRes.status}`);
-    vaultUid = ((await createRes.json()) as { uid: string }).uid;
+    if (createRes.status === 409) {
+      // Race condition: vault was created between GET and POST, retry GET
+      const retryRes = await vaultClient.fetch(`/vault/by-name/${VAULT_NAME}`);
+      if (!retryRes.ok) throw new Error(`Vault lookup failed on retry: ${retryRes.status}`);
+      vaultUid = ((await retryRes.json()) as { uid: string }).uid;
+    } else if (!createRes.ok) {
+      throw new Error(`Failed to create vault: ${createRes.status}`);
+    } else {
+      vaultUid = ((await createRes.json()) as { uid: string }).uid;
+    }
   } else {
     throw new Error(`Vault lookup failed: ${vaultRes.status}`);
   }
