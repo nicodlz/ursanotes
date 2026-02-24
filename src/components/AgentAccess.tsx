@@ -13,13 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { vaultClient } from "@/lib/vault-client.js";
+import { vaultClient, SERVER_URL, VAULT_NAME } from "@/lib/vault-client.js";
 import { deriveKeysFromJwk } from "@/lib/vault/keys.js";
 import { useAuth } from "@ursalock/client";
 import { bytesToBase64 } from "@ursalock/crypto";
-
-const SERVER_URL = import.meta.env.VITE_VAULT_SERVER_URL ?? "https://vault.ndlz.net";
-const VAULT_NAME = "ursanotes-vault";
 
 interface GeneratedKeys {
   apiKey: string;

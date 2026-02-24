@@ -1,7 +1,4 @@
 import { z } from "zod";
-import { NoteSchema } from "./note.js";
-import { FolderSchema } from "./folder.js";
-import { TagSchema } from "./tag.js";
 
 export const SettingsSchema = z.object({
   theme: z.enum(["light", "dark", "system"]),
@@ -10,12 +7,3 @@ export const SettingsSchema = z.object({
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
-
-export const VaultStateSchema = z.object({
-  notes: z.array(NoteSchema),
-  folders: z.array(FolderSchema),
-  tags: z.array(TagSchema),
-  settings: SettingsSchema,
-});
-
-export type VaultState = z.infer<typeof VaultStateSchema>;

@@ -1,8 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { getSyncStatus, subscribeSyncStatus } from "@/lib/vault/sync";
+import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from "@/lib/vault/sync";
 
-export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "offline" | "local";
-
+export type { SyncStatus };
 export { getSyncStatus };
 
 export function useSyncStatus(): SyncStatus {

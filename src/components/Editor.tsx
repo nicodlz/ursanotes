@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useVaultStore } from "@/stores/vault.js";
+import { useVaultStore } from "@/stores/index.js";
 import { useEditor } from "@/hooks/useEditor.js";
 import { MarkdownToolbar } from "./MarkdownToolbar.js";
 import type { ToolbarAction } from "./MarkdownToolbar.js";

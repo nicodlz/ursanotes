@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import type { ZKCredential } from "@ursalock/client";
-import { initializeVaultStore, clearVaultStore } from "@/stores/vault.js";
+import { initializeVaultStore, clearVaultStore } from "@/stores/index.js";
 
 // Store credential in memory after auth
 let currentCredential: ZKCredential | null = null;

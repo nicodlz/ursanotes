@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { useVaultStore } from "@/stores/vault.js";
+import { useVaultStore } from "@/stores/index.js";
 import { markdownComponents } from "@/lib/markdown-components.js";
 
 interface PreviewProps {

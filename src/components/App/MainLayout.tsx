@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useVaultStore } from "@/stores/vault.js";
+import { useVaultStore } from "@/stores/index.js";
 import { Sidebar, MobileSidebar } from "../Sidebar.js";
 import { SplitView } from "../SplitView.js";
 import { EmptyState } from "./EmptyState.js";

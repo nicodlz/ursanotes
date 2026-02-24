@@ -1,167 +1,136 @@
 /**
  * Vault ↔ Store sync engine
  *
- * Bridges the zustand store with the encrypted vault.
- * NOT a storage adapter — a side-effect that runs after auth.
+ * Single encrypted document ("ursanotes-state") per vault.
+ * Pull on init → merge into store, then subscribe → debounced push.
  *
- * Strategy:
- *   - Single encrypted document ("ursanotes-state") in the vault
- *   - On mount: pull from vault → merge into store via setState
- *   - On store change: debounce → push entire state to vault
- *
- * Why one document instead of one per slice:
- *   - 1 HTTP request instead of many
- *   - 1 encrypt/decrypt instead of many
- *   - Atomic: all-or-nothing, no partial state
- *   - PersistedVaultState is small (<1MB for a notes app)
+ * Subscribe only AFTER initial pull to prevent stale localStorage
+ * data from being pushed before we've loaded the vault state.
  */
 
 import type { DocumentClient, Collection, Document } from "@ursalock/client";
 import type { PersistedVaultState } from "@/stores/types";
 
-/** Collection name for the state document */
 const COLLECTION_NAME = "ursanotes-state";
-
-/** Debounce delay for push (ms) */
 const PUSH_DEBOUNCE_MS = 2_000;
+const DOC_UID_KEY = "ursanotes:vault:docUid";
 
-/** Storage key for document UID */
-const DOC_UID_STORAGE_KEY = "ursanotes:vault:docUid";
+// ─── Sync Status (reactive) ───
 
-/** Sync status types */
 export type SyncStatus = "idle" | "syncing" | "synced" | "error" | "offline" | "local";
 
-/** Sync status listeners */
-type SyncStatusListener = (status: SyncStatus) => void;
-const listeners = new Set<SyncStatusListener>();
+type Listener = (status: SyncStatus) => void;
+const statusListeners = new Set<Listener>();
 let currentStatus: SyncStatus = "idle";
 
-/** Get current sync status */
 export function getSyncStatus(): SyncStatus {
   return currentStatus;
 }
 
-/** Subscribe to sync status changes */
-export function subscribeSyncStatus(fn: SyncStatusListener): () => void {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
+export function subscribeSyncStatus(fn: Listener): () => void {
+  statusListeners.add(fn);
+  return () => statusListeners.delete(fn);
 }
 
-/** Update sync status and notify listeners */
 function setStatus(s: SyncStatus): void {
   if (currentStatus === s) return;
   currentStatus = s;
-  listeners.forEach((fn) => fn(s));
+  statusListeners.forEach((fn) => fn(s));
 }
 
-/** Dependencies passed from the store */
-export interface SyncDeps {
-  getState: () => any;
-  setState: (partial: any) => void;
-  subscribe: (listener: (state: any) => void) => () => void;
-  partialize: (state: any) => PersistedVaultState;
+// ─── Sync Dependencies ───
+
+export interface SyncDeps<S = any> {
+  getState: () => S;
+  setState: (partial: Partial<S>) => void;
+  subscribe: (listener: (state: S) => void) => () => void;
+  partialize: (state: S) => PersistedVaultState;
 }
 
-interface SyncState {
-  /** Document UID in the vault (null = first sync, needs create) */
-  docUid: string | null;
-  /** Document version for optimistic locking */
-  docVersion: number;
-  /** Last pushed JSON (skip if unchanged) */
-  lastPushedJson: string;
-  /** Debounce timer */
-  pushTimer: ReturnType<typeof setTimeout> | null;
-  /** Unsubscribe from store */
-  unsubscribe: (() => void) | null;
-}
+// ─── Sync Engine ───
 
-/**
- * Start syncing the zustand store with the encrypted vault.
- *
- * @param documentClient  Initialized DocumentClient with derived keys
- * @param deps            Store dependencies (getState, setState, subscribe, partialize)
- * @returns               Cleanup function (call on unmount / signOut)
- */
-export function startVaultSync(documentClient: DocumentClient, deps: SyncDeps): () => void {
+export function startVaultSync<S>(documentClient: DocumentClient, deps: SyncDeps<S>): () => void {
   const collection: Collection<PersistedVaultState> =
     documentClient.collection<PersistedVaultState>(COLLECTION_NAME);
 
-  const sync: SyncState = {
-    docUid: loadDocUid(),
-    docVersion: 0,
-    lastPushedJson: "",
-    pushTimer: null,
-    unsubscribe: null,
-  };
-
+  let docUid = safeGetItem(DOC_UID_KEY);
+  let docVersion = 0;
+  let lastPushedJson = "";
+  let pushTimer: ReturnType<typeof setTimeout> | null = null;
+  let unsubscribe: (() => void) | null = null;
   let stopped = false;
+  let lastPullTimestamp = 0;
 
-  // ─── Pull: vault → store ───
+  // ─── Pull ───
 
   async function pull(): Promise<void> {
+    setStatus("syncing");
     try {
-      setStatus("syncing");
-      const docs = await collection.list();
+      let doc: Document<PersistedVaultState> | null = null;
 
-      if (docs.length === 0) {
-        // No data in vault — push current state as initial seed
-        setStatus("local");
-        const currentState = deps.partialize(deps.getState());
-        await push(currentState);
-        setStatus("synced");
+      // Fast path: known doc UID
+      if (docUid) {
+        try { doc = await collection.get(docUid); }
+        catch { docUid = null; }
+      }
+
+      // Slow path: list collection
+      if (!doc) {
+        const docs = await collection.list({ limit: 1 });
+        doc = docs[0] ?? null;
+      }
+
+      if (!doc) {
+        // First time — seed vault with current store state
+        await push(deps.partialize(deps.getState()));
         return;
       }
 
-      // Use the first (and only) document
-      const doc = docs[0];
-      sync.docUid = doc.uid;
-      sync.docVersion = doc.version;
-      saveDocUid(doc.uid);
+      docUid = doc.uid;
+      docVersion = doc.version;
+      safeSetItem(DOC_UID_KEY, doc.uid);
 
-      // Merge vault data into store (vault wins for existing fields)
-      const currentState = deps.partialize(deps.getState());
-      const merged = { ...currentState, ...doc.content };
+      // Merge: defaults from store, overwritten by vault data
+      const local = deps.partialize(deps.getState());
+      const vaultData: PersistedVaultState =
+        (doc.content as Record<string, unknown>).content
+          ? ((doc.content as Record<string, unknown>).content as PersistedVaultState)
+          : doc.content;
+      const merged = { ...local, ...vaultData };
+      lastPushedJson = JSON.stringify(merged);
 
-      deps.setState(merged);
-      sync.lastPushedJson = JSON.stringify(merged);
-
-      console.log("[ursanotes:vault] Pulled and merged from vault");
+      deps.setState(merged as unknown as Partial<S>);
+      lastPullTimestamp = Date.now();
       setStatus("synced");
     } catch (err) {
-      console.warn("[ursanotes:vault] Pull failed (offline?):", err);
+      console.warn("[ursanotes:sync] Pull failed:", err);
       setStatus("offline");
     }
   }
 
-  // ─── Push: store → vault ───
+  // ─── Push ───
 
   async function push(state: PersistedVaultState): Promise<void> {
     if (stopped) return;
-
+    setStatus("syncing");
     try {
-      setStatus("syncing");
       let doc: Document<PersistedVaultState>;
-
-      if (sync.docUid) {
-        doc = await collection.update(sync.docUid, state);
+      if (docUid) {
+        doc = await collection.replace(docUid, state, docVersion);
       } else {
         doc = await collection.create(state);
       }
-
-      sync.docUid = doc.uid;
-      sync.docVersion = doc.version;
-      sync.lastPushedJson = JSON.stringify(state);
-      saveDocUid(doc.uid);
-
-      console.log("[ursanotes:vault] Pushed to vault");
+      docUid = doc.uid;
+      docVersion = doc.version;
+      lastPushedJson = JSON.stringify(state);
+      safeSetItem(DOC_UID_KEY, doc.uid);
       setStatus("synced");
     } catch (err) {
-      // On conflict, re-pull to get fresh version then retry
       if (err instanceof Error && err.message.includes("Conflict")) {
-        console.warn("[ursanotes:vault] Conflict — re-pulling");
+        console.warn("[ursanotes:sync] Conflict — re-pulling");
         await pull();
       } else {
-        console.warn("[ursanotes:vault] Push failed:", err);
+        console.warn("[ursanotes:sync] Push failed:", err);
         setStatus("error");
       }
     }
@@ -169,64 +138,55 @@ export function startVaultSync(documentClient: DocumentClient, deps: SyncDeps): 
 
   function schedulePush(state: PersistedVaultState): void {
     const json = JSON.stringify(state);
-    if (json === sync.lastPushedJson) return;
+    if (json === lastPushedJson) return;
 
-    if (sync.pushTimer) clearTimeout(sync.pushTimer);
-    sync.pushTimer = setTimeout(() => {
-      push(state).catch((err) => {
-        console.warn("[ursanotes:vault] Background push failed:", err);
-      });
+    // Skip the first change notification right after pull (it's setState propagating)
+    if (Date.now() - lastPullTimestamp < PUSH_DEBOUNCE_MS + 500) return;
+
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => {
+      push(state).catch((err) =>
+        console.warn("[ursanotes:sync] Background push failed:", err)
+      );
     }, PUSH_DEBOUNCE_MS);
   }
 
   // ─── Lifecycle ───
 
-  // 1. Pull on start
-  pull().catch(() => {
-    /* handled inside */
-  });
+  // Pull first, THEN subscribe — prevents stale data from being pushed
+  pull()
+    .catch(() => { /* handled inside */ })
+    .finally(() => {
+      if (stopped) return;
+      unsubscribe = deps.subscribe((state) => {
+        if (stopped) return;
+        schedulePush(deps.partialize(state));
+      });
+    });
 
-  // 2. Subscribe to store changes → debounced push
-  sync.unsubscribe = deps.subscribe((state) => {
-    if (stopped) return;
-    schedulePush(deps.partialize(state));
-  });
-
-  // 3. Cleanup
   return () => {
     stopped = true;
-    if (sync.pushTimer) clearTimeout(sync.pushTimer);
-    if (sync.unsubscribe) sync.unsubscribe();
+    if (pushTimer) clearTimeout(pushTimer);
+    unsubscribe?.();
     setStatus("idle");
   };
 }
 
-/**
- * Clear sync state (on signout)
- */
 export function clearSyncState(): void {
-  try {
-    localStorage.removeItem(DOC_UID_STORAGE_KEY);
-  } catch {
-    // Ignore localStorage errors
-  }
+  safeRemoveItem(DOC_UID_KEY);
   setStatus("idle");
 }
 
-// ─── LocalStorage helpers ───
+// ─── LocalStorage helpers (never throw) ───
 
-function loadDocUid(): string | null {
-  try {
-    return localStorage.getItem(DOC_UID_STORAGE_KEY);
-  } catch {
-    return null;
-  }
+function safeGetItem(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
 }
 
-function saveDocUid(uid: string): void {
-  try {
-    localStorage.setItem(DOC_UID_STORAGE_KEY, uid);
-  } catch {
-    // Ignore localStorage errors
-  }
+function safeSetItem(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
+function safeRemoveItem(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* ignore */ }
 }
