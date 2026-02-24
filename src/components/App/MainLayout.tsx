@@ -8,7 +8,6 @@ export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const currentNoteId = useVaultStore((state) => state.currentNoteId);
-  console.log("[MainLayout] render, currentNoteId =", currentNoteId);
 
   return (
     <div className="h-screen flex overflow-hidden">
