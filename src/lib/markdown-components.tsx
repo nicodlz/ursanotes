@@ -51,16 +51,21 @@ export const markdownComponents: Components = {
       className="mr-2 cursor-default"
     />
   ),
-  // Better list styling
+  // Better list styling — list-outside for proper nested indentation (CommonMark)
   ul: ({ children }) => (
-    <ul className="list-disc list-inside my-2 space-y-1">
+    <ul className="list-disc list-outside pl-6 my-2 space-y-1">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="list-decimal list-inside my-2 space-y-1">
+    <ol className="list-decimal list-outside pl-6 my-2 space-y-1">
       {children}
     </ol>
+  ),
+  li: ({ children }) => (
+    <li className="pl-1">
+      {children}
+    </li>
   ),
   // Headings
   h1: ({ children }) => (
@@ -82,6 +87,16 @@ export const markdownComponents: Components = {
     <h4 className="text-lg font-bold mt-3 mb-2">
       {children}
     </h4>
+  ),
+  h5: ({ children }) => (
+    <h5 className="text-base font-bold mt-3 mb-1">
+      {children}
+    </h5>
+  ),
+  h6: ({ children }) => (
+    <h6 className="text-sm font-bold mt-3 mb-1 text-[var(--text-secondary)]">
+      {children}
+    </h6>
   ),
   // Blockquotes
   blockquote: ({ children }) => (
