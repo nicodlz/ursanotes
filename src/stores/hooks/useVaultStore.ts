@@ -21,10 +21,11 @@ export function useVaultStore<T>(selector: (state: VaultState) => T): T {
   useEffect(() => {
     const unsub = store.subscribe((state) => {
       const next = selectorRef.current(state as VaultState);
-      setSlice(next);
+      setSlice(() => next);
     });
     // Sync in case state changed between render and effect
-    setSlice(selectorRef.current(store.getState()));
+    const cur = selectorRef.current(store.getState());
+    setSlice(() => cur);
     return unsub;
   }, [store]);
 
