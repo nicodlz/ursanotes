@@ -11,6 +11,7 @@ interface SplitViewProps {
 }
 
 export function SplitView({ noteId, onMenuClick }: SplitViewProps) {
+  console.log("[SplitView] render, noteId =", noteId);
   const [activeTab, setActiveTab] = useState<string>("edit");
   const [leftWidthPercent, setLeftWidthPercent] = useState(50);
 
