@@ -110,26 +110,32 @@ export function SidebarContent({ onNoteSelect }: SidebarContentProps) {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Folders Section */}
-        <CollapsibleSection title="Folders" icon={<Folder className="w-4 h-4" />}>
-          <FolderTree onNewFolder={handleNewFolder} onEditFolder={handleEditFolder} />
-        </CollapsibleSection>
+        <div className="shrink-0">
+          <CollapsibleSection title="Folders" icon={<Folder className="w-4 h-4" />}>
+            <FolderTree onNewFolder={handleNewFolder} onEditFolder={handleEditFolder} />
+          </CollapsibleSection>
+        </div>
 
         {/* Tags Section */}
-        <CollapsibleSection title="Tags" icon={<TagIcon className="w-4 h-4" />}>
-          <TagList onNewTag={handleNewTag} onEditTag={handleEditTag} />
-        </CollapsibleSection>
+        <div className="shrink-0">
+          <CollapsibleSection title="Tags" icon={<TagIcon className="w-4 h-4" />}>
+            <TagList onNewTag={handleNewTag} onEditTag={handleEditTag} />
+          </CollapsibleSection>
+        </div>
 
-        {/* Notes Section */}
-        <CollapsibleSection title="Notes" icon={<FileText className="w-4 h-4" />} defaultOpen={true}>
-          <NoteList
-            notes={filteredNotes}
-            currentNoteId={currentNoteId}
-            filterDescription={filterDescription}
-            onNoteSelect={onNoteSelect}
-          />
-        </CollapsibleSection>
+        {/* Notes Section — fills remaining space */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <CollapsibleSection title="Notes" icon={<FileText className="w-4 h-4" />} defaultOpen={true} grow>
+            <NoteList
+              notes={filteredNotes}
+              currentNoteId={currentNoteId}
+              filterDescription={filterDescription}
+              onNoteSelect={onNoteSelect}
+            />
+          </CollapsibleSection>
+        </div>
       </div>
 
       {/* Footer */}

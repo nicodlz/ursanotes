@@ -20,7 +20,7 @@ export function NoteList({ notes, currentNoteId, filterDescription, onNoteSelect
           Filtered: {filterDescription}
         </div>
       )}
-      <div className="max-h-[300px] md:max-h-[300px] overflow-y-auto">
+      <div className="overflow-y-auto">
         {notes.length === 0 ? (
           <div className="p-2 text-center text-[var(--text-secondary)] text-sm">
             No notes{filterDescription ? " matching filter" : ""}
