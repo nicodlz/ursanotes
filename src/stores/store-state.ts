@@ -1,41 +1,12 @@
 import type { StateCreator } from "zustand";
 import type { Note, Folder, Tag, Settings } from "../schemas/index.js";
 import type { VaultState } from "./types.js";
+import { defaultNotes, welcomeNote } from "./default-notes.js";
 
 const defaultSettings: Settings = {
   theme: "system",
   editorFontSize: 14,
   previewFontSize: 16,
-};
-
-const welcomeNote: Note = {
-  id: "00000000-0000-0000-0000-000000000001",
-  title: "Welcome to Ursanotes",
-  content: `# Welcome to Ursanotes 🔐
-
-Your **end-to-end encrypted** markdown notes.
-
-## Features
-
-- ✨ Beautiful markdown editor with syntax highlighting
-- 🔒 E2EE with your passkey (keys derived from PRF - no recovery key needed!)
-- 📱 Offline-first - works without internet
-- 🔄 Sync across devices with the same passkey
-
-## Getting Started
-
-1. Create a new note from the sidebar
-2. Write your markdown content
-3. See live preview on the right
-
----
-
-*Happy writing!* 📝
-`,
-  folderId: null,
-  tags: [],
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
 };
 
 function generateTitle(): string {
@@ -49,7 +20,7 @@ function generateTitle(): string {
  */
 export const createStoreState: StateCreator<VaultState, [], []> = (set, get) => ({
   // Initial state
-  notes: [welcomeNote],
+  notes: defaultNotes,
   folders: [],
   tags: [],
   settings: defaultSettings,
