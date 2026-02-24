@@ -5,7 +5,7 @@
  * derives encryption keys from the passkey, and starts the sync engine.
  */
 
-import { create, type UseBoundStore, type StoreApi } from "zustand";
+import { createStore, type StoreApi } from "zustand/vanilla";
 import { DocumentClient } from "@ursalock/client";
 import type { CipherJWK } from "@ursalock/crypto";
 import type { VaultState, PersistedVaultState } from "./types.js";
@@ -14,7 +14,7 @@ import { vaultClient, SERVER_URL, VAULT_NAME } from "../lib/vault-client.js";
 import { deriveKeysFromJwk } from "../lib/vault/keys.js";
 import { startVaultSync, clearSyncState } from "../lib/vault/sync.js";
 
-export type VaultStore = UseBoundStore<StoreApi<VaultState>>;
+export type VaultStore = StoreApi<VaultState>;
 
 let vaultStore: VaultStore | null = null;
 let syncCleanup: (() => void) | null = null;
@@ -58,7 +58,7 @@ async function getOrCreateVault(): Promise<string> {
 export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultStore> {
   if (vaultStore) return vaultStore;
 
-  const store = create<VaultState>(createStoreState);
+  const store = createStore<VaultState>(createStoreState);
   const vaultUid = await getOrCreateVault();
   const keys = await deriveKeysFromJwk(cipherJwk, vaultUid);
 
