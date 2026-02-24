@@ -1,12 +1,12 @@
-import { useSyncExternalStore, useCallback, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getVaultStore, isVaultInitialized } from "../vault-initializer.js";
 import type { VaultState } from "../types.js";
 
 /**
- * Hook to use the vault store with proper React 18 subscription.
+ * Hook to use the vault store with React subscription.
  *
- * Uses useSyncExternalStore directly for maximum reliability.
- * Stable selector ref avoids stale closure issues.
+ * Uses useState + subscribe manually — bypasses useSyncExternalStore
+ * which was not triggering re-renders despite receiving notifications.
  */
 export function useVaultStore<T>(selector: (state: VaultState) => T): T {
   if (!isVaultInitialized()) {
@@ -14,30 +14,19 @@ export function useVaultStore<T>(selector: (state: VaultState) => T): T {
   }
 
   const store = getVaultStore();
+  const [slice, setSlice] = useState(() => selector(store.getState()));
   const selectorRef = useRef(selector);
   selectorRef.current = selector;
 
-  // Debug: verify subscribe fires
   useEffect(() => {
-    const unsub = store.subscribe((state, prev) => {
-      console.log("[useVaultStore] subscribe fired, currentNoteId:", (state as VaultState).currentNoteId, "prev:", (prev as VaultState).currentNoteId);
+    const unsub = store.subscribe((state) => {
+      const next = selectorRef.current(state as VaultState);
+      setSlice(next);
     });
+    // Sync in case state changed between render and effect
+    setSlice(selectorRef.current(store.getState()));
     return unsub;
   }, [store]);
 
-  const subscribe = useCallback(
-    (onStoreChange: () => void) => {
-      console.log("[useVaultStore] useSyncExternalStore subscribing");
-      const unsub = store.subscribe(onStoreChange);
-      return unsub;
-    },
-    [store]
-  );
-
-  const getSnapshot = useCallback(
-    () => selectorRef.current(store.getState()),
-    [store]
-  );
-
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return slice;
 }
