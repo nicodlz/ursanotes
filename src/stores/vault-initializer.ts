@@ -8,7 +8,7 @@ import { deriveKeysFromJwk } from "../lib/vault/keys.js";
 import { startVaultSync, clearSyncState } from "../lib/vault/sync.js";
 
 const SERVER_URL = import.meta.env.VITE_VAULT_SERVER_URL ?? "https://vault.ndlz.net";
-const VAULT_NAME = "ursanotes";
+const VAULT_NAME = "ursanotes-vault";
 
 // Simplified store type - no more vault middleware
 export type VaultStore = UseBoundStore<StoreApi<VaultState>>;
@@ -38,7 +38,7 @@ export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultS
     const createRes = await vaultClient.fetch("/vault", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: VAULT_NAME, data: btoa("\0"), salt: btoa("\0") }),
+      body: JSON.stringify({ name: VAULT_NAME }),
     });
     if (!createRes.ok) throw new Error(`Failed to create vault: ${createRes.status}`);
     vaultUid = ((await createRes.json()) as { uid: string }).uid;
