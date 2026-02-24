@@ -10,6 +10,7 @@
 
 import type { DocumentClient, Collection, Document } from "@ursalock/client";
 import type { PersistedVaultState } from "@/stores/types";
+import { defaultNotes } from "@/stores/default-notes.js";
 
 const COLLECTION_NAME = "ursanotes-state";
 const PUSH_DEBOUNCE_MS = 2_000;
@@ -97,6 +98,14 @@ export function startVaultSync<S>(documentClient: DocumentClient, deps: SyncDeps
           ? ((doc.content as Record<string, unknown>).content as PersistedVaultState)
           : doc.content;
       const merged = { ...local, ...vaultData };
+
+      // Inject default notes missing from vault (one-time migration)
+      const existingIds = new Set(merged.notes.map((n: { id: string }) => n.id));
+      const missing = defaultNotes.filter((n) => !existingIds.has(n.id));
+      if (missing.length > 0) {
+        merged.notes = [...merged.notes, ...missing];
+      }
+
       lastPushedJson = JSON.stringify(merged);
 
       deps.setState(merged as unknown as Partial<S>);
