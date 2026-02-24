@@ -28,57 +28,57 @@ Font.register({
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 36,
     fontFamily: "Roboto",
-    fontSize: 11,
-    lineHeight: 1.5,
+    fontSize: 10,
+    lineHeight: 1.3,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 700,
-    marginBottom: 10,
-    paddingBottom: 8,
+    marginBottom: 6,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
   },
-  h1: { fontSize: 18, fontWeight: 700, marginTop: 16, marginBottom: 8 },
-  h2: { fontSize: 15, fontWeight: 700, marginTop: 14, marginBottom: 6 },
-  h3: { fontSize: 13, fontWeight: 700, marginTop: 12, marginBottom: 5 },
-  h4: { fontSize: 11, fontWeight: 700, marginTop: 10, marginBottom: 4 },
-  h5: { fontSize: 11, fontWeight: 700, marginTop: 8, marginBottom: 4 },
-  h6: { fontSize: 11, fontWeight: 700, marginTop: 8, marginBottom: 4 },
-  paragraph: { marginBottom: 8 },
+  h1: { fontSize: 16, fontWeight: 700, marginTop: 10, marginBottom: 4 },
+  h2: { fontSize: 13, fontWeight: 700, marginTop: 8, marginBottom: 3 },
+  h3: { fontSize: 11, fontWeight: 700, marginTop: 6, marginBottom: 2 },
+  h4: { fontSize: 10, fontWeight: 700, marginTop: 5, marginBottom: 2 },
+  h5: { fontSize: 10, fontWeight: 700, marginTop: 4, marginBottom: 2 },
+  h6: { fontSize: 10, fontWeight: 700, marginTop: 4, marginBottom: 2 },
+  paragraph: { marginBottom: 4 },
   bold: { fontWeight: 700 },
   italic: { fontStyle: "italic" },
   code: {
     fontFamily: "RobotoMono",
-    fontSize: 9,
+    fontSize: 8,
     backgroundColor: "#f4f4f4",
-    padding: 2,
+    padding: 1,
   },
   codeBlock: {
     fontFamily: "RobotoMono",
-    fontSize: 9,
+    fontSize: 8,
     backgroundColor: "#f4f4f4",
-    padding: 10,
-    marginVertical: 8,
+    padding: 6,
+    marginVertical: 4,
     borderRadius: 4,
   },
   blockquote: {
-    borderLeftWidth: 3,
+    borderLeftWidth: 2,
     borderLeftColor: "#ccc",
-    paddingLeft: 10,
-    marginVertical: 8,
+    paddingLeft: 8,
+    marginVertical: 4,
     fontStyle: "italic",
     color: "#555",
   },
   listItem: {
     flexDirection: "row",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   bullet: {
-    width: 15,
-    marginRight: 5,
+    width: 12,
+    marginRight: 3,
   },
   listContent: {
     flex: 1,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   hr: {
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
-    marginVertical: 12,
+    marginVertical: 6,
   },
   tableRow: {
     flexDirection: "row",
@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     flex: 1,
-    padding: 5,
-    fontSize: 10,
+    padding: 3,
+    fontSize: 9,
   },
   tableHeader: {
     fontWeight: 700,
@@ -119,11 +119,26 @@ interface PdfDocumentProps {
 }
 
 function PdfDocument({ title, tokens }: PdfDocumentProps) {
+  // Skip the first heading if it matches the note title (avoid duplication)
+  let skipFirst = true;
+  const filteredTokens = tokens.filter((token) => {
+    if (
+      skipFirst &&
+      token.type === "heading" &&
+      (token as Tokens.Heading).depth === 1 &&
+      (token as Tokens.Heading).text.trim() === title.trim()
+    ) {
+      skipFirst = false;
+      return false;
+    }
+    return true;
+  });
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <Text style={styles.title}>{title}</Text>
-        {tokens.map((token, i) => (
+        {filteredTokens.map((token, i) => (
           <TokenRenderer key={i} token={token} />
         ))}
       </Page>
@@ -185,7 +200,7 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
     case "list": {
       const t = token as Tokens.List;
       return (
-        <View style={{ marginBottom: 8 }}>
+        <View style={{ marginBottom: 4 }}>
           {t.items.map((item, i) => (
             <View key={i} style={styles.listItem}>
               <Text style={styles.bullet}>{t.ordered ? `${i + 1}.` : "•"}</Text>
@@ -201,7 +216,7 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
     case "table": {
       const t = token as Tokens.Table;
       return (
-        <View style={{ marginVertical: 8 }}>
+        <View style={{ marginVertical: 4 }}>
           <View style={styles.tableRow}>
             {t.header.map((cell, i) => (
               <Text key={i} style={[styles.tableCell, styles.tableHeader]}>
@@ -226,7 +241,7 @@ function TokenRenderer({ token }: { token: Token }): React.ReactElement | null {
       return <View style={styles.hr} />;
 
     case "space":
-      return <View style={{ height: 8 }} />;
+      return <View style={{ height: 4 }} />;
 
     default:
       // Fallback for any unhandled token types
