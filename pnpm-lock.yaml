@@ -33,14 +33,11 @@ importers:
         specifier: ^4.1.18
         version: 4.1.18(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.30.2))
       '@ursalock/client':
-        specifier: ^0.2.2
-        version: 0.2.2(react@19.2.4)
+        specifier: ^0.4.2
+        version: 0.4.2(react@19.2.4)
       '@ursalock/crypto':
-        specifier: ^0.2.1
-        version: 0.2.1
-      '@ursalock/zustand':
-        specifier: 0.2.8
-        version: 0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+        specifier: ^0.4.2
+        version: 0.4.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1905,21 +1902,16 @@ packages:
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
 
-  '@ursalock/client@0.2.2':
-    resolution: {integrity: sha512-WVr3hnU+XXvrjjvzaekBSPWM8AU9Ez9tQNlRm7Dl6xI8RCAQBJLo5xzei5Ta8oynglDtIKuN659UGZLUzs6pgQ==}
+  '@ursalock/client@0.4.2':
+    resolution: {integrity: sha512-5tFuhfP0TLdi+ZHEPUBnTlmyEjTZk+6IW6z06ml19KS+wfVzBOuW3yCHnv/2pNlhwqsnQ5vKQsQzmMTRyhmxjg==}
     peerDependencies:
       react: '>=18.0.0'
     peerDependenciesMeta:
       react:
         optional: true
 
-  '@ursalock/crypto@0.2.1':
-    resolution: {integrity: sha512-3WRTQf2q3b/Fs0iag+YdtX2P5nzE3C2fkTjxTfW52r4mjnOvxMa9Uv8qi4XtdEDtWUsDQklG5/PPd6i9kjLAcw==}
-
-  '@ursalock/zustand@0.2.8':
-    resolution: {integrity: sha512-D0DYEIVm8M6jPpe1viuzk9wZ0F6yczlrs2zkZU8Jp3yZYRtlft/5F1ukmFLumktH2LH1luliYJNNL3a7ty6B9g==}
-    peerDependencies:
-      zustand: '>=4.0.0'
+  '@ursalock/crypto@0.4.2':
+    resolution: {integrity: sha512-RjfvyNQbROpcMspKQ2v/L52Ot6nGhfWypSbJsPfhIEeZTQoj63cKrK7DFm/uGy8Wqv5UdZTC1yrjQ5ISKuhtDw==}
 
   '@vitejs/plugin-react@5.1.3':
     resolution: {integrity: sha512-NVUnA6gQCl8jfoYqKqQU5Clv0aPw14KkZYCsX6T9Lfu9slI0LOU10OTwFHS/WmptsMMpshNd/1tuWsHQ2Uk+cg==}
@@ -6042,21 +6034,17 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
-  '@ursalock/client@0.2.2(react@19.2.4)':
+  '@ursalock/client@0.4.2(react@19.2.4)':
     dependencies:
+      '@ursalock/crypto': 0.4.2
       '@z-base/zero-knowledge-credentials': 1.0.2
     optionalDependencies:
       react: 19.2.4
 
-  '@ursalock/crypto@0.2.1':
+  '@ursalock/crypto@0.4.2':
     dependencies:
       '@z-base/cryptosuite': 1.0.1
       hash-wasm: 4.12.0
-
-  '@ursalock/zustand@0.2.8(zustand@5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
-    dependencies:
-      '@ursalock/crypto': 0.2.1
-      zustand: 5.0.11(@types/react@19.2.13)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
 
   '@vitejs/plugin-react@5.1.3(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.30.2))':
     dependencies:

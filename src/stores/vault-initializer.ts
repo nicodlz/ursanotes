@@ -1,163 +1,91 @@
-import { create, type StateCreator } from "zustand";
-import { vault, type VaultOptionsJwk } from "@ursalock/zustand";
+import { create, type UseBoundStore, type StoreApi } from "zustand";
+import { DocumentClient } from "@ursalock/client";
 import type { CipherJWK } from "@ursalock/crypto";
 import type { VaultState, PersistedVaultState } from "./types.js";
 import { createStoreState } from "./store-state.js";
 import { vaultClient } from "../lib/vault-client.js";
+import { deriveKeysFromJwk } from "../lib/vault/keys.js";
+import { startVaultSync, clearSyncState } from "../lib/vault/sync.js";
 
-// Server URL for sync
 const SERVER_URL = import.meta.env.VITE_VAULT_SERVER_URL ?? "https://vault.ndlz.net";
+const VAULT_NAME = "ursanotes";
 
-// Type for the vault-enhanced store
-export interface VaultStore {
-  (): VaultState;
-  <T>(selector: (state: VaultState) => T): T;
-  getState: () => VaultState;
-  setState: (partial: Partial<VaultState> | ((state: VaultState) => Partial<VaultState>)) => void;
-  subscribe: (listener: (state: VaultState) => void) => () => void;
-  vault: {
-    sync: () => Promise<void>;
-    push: () => Promise<void>;
-    pull: () => Promise<boolean>;
-    rehydrate: () => Promise<void>;
-    hasHydrated: () => boolean;
-    getSyncStatus: () => string;
-    hasPendingChanges: () => boolean;
-    clearStorage: () => Promise<void>;
-    onHydrate: (fn: (state: VaultState) => void) => () => void;
-    onFinishHydration: (fn: (state: VaultState) => void) => () => void;
-  };
-}
+// Simplified store type - no more vault middleware
+export type VaultStore = UseBoundStore<StoreApi<VaultState>>;
 
-// Singleton store instance
 let vaultStore: VaultStore | null = null;
-let initializationPromise: Promise<VaultStore> | null = null;
+let syncCleanup: (() => void) | null = null;
 
-/**
- * Initialize the vault store with E2EE
- */
+const partialize = (state: VaultState): PersistedVaultState => ({
+  notes: state.notes,
+  folders: state.folders,
+  tags: state.tags,
+  settings: state.settings,
+});
+
 export async function initializeVaultStore(cipherJwk: CipherJWK): Promise<VaultStore> {
-  // Return existing store if already initialized
-  if (vaultStore) {
-    return vaultStore;
+  if (vaultStore) return vaultStore;
+
+  // 1. Create plain zustand store
+  const store = create<VaultState>(createStoreState);
+
+  // 2. Get or create vault (as container for documents)
+  const vaultRes = await vaultClient.fetch(`/vault/by-name/${VAULT_NAME}`);
+  let vaultUid: string;
+  if (vaultRes.ok) {
+    vaultUid = ((await vaultRes.json()) as { uid: string }).uid;
+  } else if (vaultRes.status === 404) {
+    const createRes = await vaultClient.fetch("/vault", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: VAULT_NAME, data: btoa("\0"), salt: btoa("\0") }),
+    });
+    if (!createRes.ok) throw new Error(`Failed to create vault: ${createRes.status}`);
+    vaultUid = ((await createRes.json()) as { uid: string }).uid;
+  } else {
+    throw new Error(`Vault lookup failed: ${vaultRes.status}`);
   }
-  
-  // Return existing promise if initialization in progress
-  if (initializationPromise) {
-    return initializationPromise;
-  }
-  
-  initializationPromise = new Promise((resolve, reject) => {
-    let rehydrationComplete = false;
-    let rehydrationError: Error | null = null;
 
-    const storeCreator: StateCreator<VaultState, [], []> = createStoreState;
+  // 3. Derive encryption keys
+  const keys = await deriveKeysFromJwk(cipherJwk, vaultUid);
 
-    const vaultOptions: VaultOptionsJwk<VaultState, PersistedVaultState> = {
-      name: "ursanotes-vault",
-      cipherJwk,
-      server: SERVER_URL,
-      getToken: () => {
-        const header = vaultClient.getAuthHeader();
-        const auth = header["Authorization"];
-        return auth ? auth.replace("Bearer ", "") : null;
-      },
-      syncInterval: 30000,
-      
-      // Only persist data, not UI state
-      partialize: (state: VaultState): PersistedVaultState => ({
-        notes: state.notes,
-        folders: state.folders,
-        tags: state.tags,
-        settings: state.settings,
-      }),
-      
-      // Merge persisted data with current state, preserving UI state and actions
-      merge: (persistedState: unknown, currentState: VaultState): VaultState => {
-        const persisted = persistedState as Partial<PersistedVaultState>;
-        return {
-          ...currentState, // Preserves all actions and UI state
-          // Only override data fields if they exist in persisted state
-          notes: persisted.notes ?? currentState.notes,
-          folders: persisted.folders ?? currentState.folders,
-          tags: persisted.tags ?? currentState.tags,
-          settings: persisted.settings ?? currentState.settings,
-        };
-      },
-      
-      onRehydrateStorage: () => (_state: VaultState | undefined, error: unknown) => {
-        rehydrationComplete = true;
-        if (error) {
-          rehydrationError = error instanceof Error ? error : new Error(String(error));
-        }
-      },
-    };
-
-    const vaultMiddleware = vault(
-      storeCreator as unknown as StateCreator<VaultState, [], []>,
-      vaultOptions as unknown as VaultOptionsJwk<VaultState, VaultState>
-    );
-    const store = create(vaultMiddleware as StateCreator<VaultState, [], []>) as unknown as VaultStore;
-
-    // Wait for hydration with timeout
-    const startTime = Date.now();
-    const timeout = 30000;
-
-    const checkHydration = () => {
-      if (rehydrationComplete) {
-        if (rehydrationError) {
-          vaultStore = null;
-          initializationPromise = null;
-          reject(rehydrationError);
-        } else {
-          vaultStore = store;
-          initializationPromise = null;
-          resolve(store);
-        }
-      } else if (Date.now() - startTime > timeout) {
-        vaultStore = null;
-        initializationPromise = null;
-        reject(new Error("Vault initialization timeout"));
-      } else {
-        setTimeout(checkHydration, 50);
-      }
-    };
-
-    setTimeout(checkHydration, 50);
+  // 4. Create DocumentClient
+  const documentClient = new DocumentClient({
+    serverUrl: SERVER_URL,
+    vaultUid,
+    encryptionKey: keys.encryptionKey,
+    hmacKey: keys.hmacKey,
+    getAuthHeader: () => vaultClient.getAuthHeader(),
   });
-  
-  return initializationPromise;
+
+  // 5. Start sync
+  syncCleanup = startVaultSync(documentClient, {
+    getState: store.getState,
+    setState: store.setState,
+    subscribe: store.subscribe,
+    partialize,
+  });
+
+  vaultStore = store;
+  return store;
 }
 
-/**
- * Get the vault store instance
- */
 export function getVaultStore(): VaultStore {
-  if (!vaultStore) {
-    throw new Error("Vault not initialized. Call initializeVaultStore first.");
-  }
+  if (!vaultStore) throw new Error("Vault not initialized");
   return vaultStore;
 }
 
-/**
- * Check if vault store is initialized
- */
 export function isVaultInitialized(): boolean {
   return vaultStore !== null;
 }
 
-/**
- * Clear the vault store (for logout)
- */
 export function clearVaultStore(): void {
+  syncCleanup?.();
+  syncCleanup = null;
   vaultStore = null;
-  initializationPromise = null;
+  clearSyncState();
 }
 
-/**
- * Manually trigger a sync
- */
 export async function triggerSync(): Promise<void> {
-  if (!vaultStore) return;
-  await vaultStore.vault.sync();
+  // Sync is automatic via subscribe, but we could expose manual trigger if needed
 }
